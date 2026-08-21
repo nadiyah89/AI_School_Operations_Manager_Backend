@@ -12,5 +12,8 @@ namespace SchoolOperations.Data
       }
         // Represents the Students table in the database
         public DbSet<Student> Students { get; set; }
+
+        // Represents the Attendances table in the database
+        public DbSet<Attendance> Attendances { get; set; }
     }
 }
