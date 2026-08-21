@@ -1,0 +1,16 @@
+﻿using Microsoft.EntityFrameworkCore;
+using SchoolOperations.Models;
+
+namespace SchoolOperations.Data
+{
+    public class SchoolDbContext : DbContext
+    {
+
+      public SchoolDbContext(DbContextOptions<SchoolDbContext> options) : base(options)
+      {
+
+      }
+        // Represents the Students table in the database
+        public DbSet<Student> Students { get; set; }
+    }
+}
