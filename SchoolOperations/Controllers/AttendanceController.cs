@@ -57,13 +57,20 @@ namespace SchoolOperations.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAttendance(CreateAttendanceDto dto)
         {
-            // Check whether the student exists
-            var studentExists = await _context.Students
-                .AnyAsync(s => s.Id == dto.StudentId);
+            // Find the student
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.Id == dto.StudentId);
 
-            if (!studentExists)
+            // Check whether the student exists
+            if (student == null)
             {
                 return BadRequest("Student does not exist.");
+            }
+
+            // Check whether the student is active
+            if (!student.IsActive)
+            {
+                return BadRequest("Student is inactive.");
             }
 
             // Check whether attendance has already been recorded for this student today
@@ -95,6 +102,47 @@ namespace SchoolOperations.Controllers
             return Ok(attendance);
         }
 
+        // PUT: api/attendance/1
+        // Updates an existing attendance record
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAttendance(
+            int id,
+            UpdateAttendanceDto dto)
+        {
+            // Find the existing attendance record
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a => a.Id == id);
+
+            // If the attendance record does not exist, return 404
+            if (attendance == null)
+            {
+                return NotFound("Attendance record does not exist.");
+            }
+
+            // Check whether another attendance record already exists
+            // for the same student on the new date
+            var duplicateExists = await _context.Attendances
+                .AnyAsync(a =>
+                    a.Id != id &&
+                    a.StudentId == attendance.StudentId &&
+                    a.Date.Date == dto.Date.Date);
+
+            if (duplicateExists)
+            {
+                return BadRequest(
+                    "Attendance has already been recorded for this student on this date.");
+            }
+
+            // Update the attendance information
+            attendance.Date = dto.Date;
+            attendance.IsPresent = dto.IsPresent;
+
+            // Save the changes to SQL Server
+            await _context.SaveChangesAsync();
+
+            // Return the updated attendance record
+            return Ok(attendance);
+        }
 
     }
 }

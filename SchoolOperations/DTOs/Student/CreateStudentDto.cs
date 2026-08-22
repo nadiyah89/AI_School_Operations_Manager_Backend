@@ -1,10 +1,7 @@
-﻿namespace SchoolOperations.Models
+﻿namespace SchoolOperations.DTOs.Student
 {
-    public class Student
+    public class CreateStudentDto
     {
-        // Unique identifier for the student
-        public int Id { get; set; }
-
         // Student's first name
         public string FirstName { get; set; } = string.Empty;
 
@@ -13,9 +10,5 @@
 
         // Student's date of birth
         public DateTime DateOfBirth { get; set; }
-
-        // Indicates whether the student is currently active
-        public bool IsActive { get; set; } = true;
-
     }
 }
