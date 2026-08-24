@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Admission;
 using SchoolOperations.Models;
-using SchoolOperations.DTOs.Admission;
+
 
 namespace SchoolOperations.Controllers
 {
@@ -358,6 +358,7 @@ namespace SchoolOperations.Controllers
             // Return the newly created Parent
             return Ok(parent);
         }
+
 
     }
 }
