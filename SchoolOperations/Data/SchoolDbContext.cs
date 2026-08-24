@@ -21,5 +21,8 @@ namespace SchoolOperations.Data
 
         // Represents the Teachers table in the database
         public DbSet<Teacher> Teachers { get; set; }
+
+        // Represents the AdmissionApplications table in the database
+        public DbSet<AdmissionApplication> AdmissionApplications { get; set; }
     }
 }
