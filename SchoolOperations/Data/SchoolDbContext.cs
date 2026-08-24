@@ -27,5 +27,23 @@ namespace SchoolOperations.Data
 
         // Represents the Documents table in the database
         public DbSet<Document> Documents { get; set; }
+
+        // Represents the AcademicPerformance table in the database
+        public DbSet<AcademicPerformance> AcademicPerformances { get; set; }
+
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configure decimal precision for academic marks
+            modelBuilder.Entity<AcademicPerformance>()
+                .Property(a => a.MarksObtained)
+                .HasPrecision(5, 2);
+
+            modelBuilder.Entity<AcademicPerformance>()
+                .Property(a => a.MaximumMarks)
+                .HasPrecision(5, 2);
+        }
     }
 }
