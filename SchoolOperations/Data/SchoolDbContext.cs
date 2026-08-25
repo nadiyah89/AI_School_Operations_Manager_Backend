@@ -37,6 +37,9 @@ namespace SchoolOperations.Data
         // Represents the Meetings table in the database
         public DbSet<Meeting> Meetings { get; set; }
 
+        // Represents the Notifications table in the database
+        public DbSet<Notification> Notifications { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -74,6 +77,21 @@ namespace SchoolOperations.Data
                 .HasOne(m => m.Teacher)
                 .WithMany()
                 .HasForeignKey(m => m.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+            // Configure Notification -> Student relationship
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Student)
+                .WithMany()
+                .HasForeignKey(n => n.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure Notification -> Parent relationship
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Parent)
+                .WithMany()
+                .HasForeignKey(n => n.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
