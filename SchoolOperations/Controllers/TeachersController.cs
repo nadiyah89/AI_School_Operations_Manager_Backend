@@ -148,5 +148,36 @@ namespace SchoolOperations.Controllers
             return Ok(teacher);
         }
 
+        // PUT: api/teachers/1/activate
+        // Activates a previously deactivated teacher
+        [HttpPut("{id}/activate")]
+        public async Task<IActionResult> ActivateTeacher(int id)
+        {
+            // Find the teacher
+            var teacher = await _context.Teachers
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            // If the teacher does not exist, return 404
+            if (teacher == null)
+            {
+                return NotFound("Teacher does not exist.");
+            }
+
+            // If the teacher is already active, return a bad request
+            if (teacher.IsActive)
+            {
+                return BadRequest("Teacher is already active.");
+            }
+
+            // Activate the teacher
+            teacher.IsActive = true;
+
+            // Save the change to the database
+            await _context.SaveChangesAsync();
+
+            // Return the updated teacher
+            return Ok(teacher);
+        }
+
     }
 }

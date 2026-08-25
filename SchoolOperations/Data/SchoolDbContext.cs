@@ -34,6 +34,9 @@ namespace SchoolOperations.Data
         // Represents the FeeRecords table in the database
         public DbSet<FeeRecord> FeeRecords { get; set; }
 
+        // Represents the Meetings table in the database
+        public DbSet<Meeting> Meetings { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,6 +60,21 @@ namespace SchoolOperations.Data
             modelBuilder.Entity<FeeRecord>()
                 .Property(f => f.PaidAmount)
                 .HasPrecision(10, 2);
+
+
+            // Configure Meeting -> Student relationship
+            modelBuilder.Entity<Meeting>()
+                .HasOne(m => m.Student)
+                .WithMany()
+                .HasForeignKey(m => m.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure Meeting -> Teacher relationship
+            modelBuilder.Entity<Meeting>()
+                .HasOne(m => m.Teacher)
+                .WithMany()
+                .HasForeignKey(m => m.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
