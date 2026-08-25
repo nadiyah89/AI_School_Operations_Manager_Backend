@@ -31,6 +31,9 @@ namespace SchoolOperations.Data
         // Represents the AcademicPerformance table in the database
         public DbSet<AcademicPerformance> AcademicPerformances { get; set; }
 
+        // Represents the FeeRecords table in the database
+        public DbSet<FeeRecord> FeeRecords { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +47,16 @@ namespace SchoolOperations.Data
             modelBuilder.Entity<AcademicPerformance>()
                 .Property(a => a.MaximumMarks)
                 .HasPrecision(5, 2);
+
+
+            // Configure decimal precision for Fee amounts
+            modelBuilder.Entity<FeeRecord>()
+                .Property(f => f.Amount)
+                .HasPrecision(10, 2);
+
+            modelBuilder.Entity<FeeRecord>()
+                .Property(f => f.PaidAmount)
+                .HasPrecision(10, 2);
         }
     }
 }
