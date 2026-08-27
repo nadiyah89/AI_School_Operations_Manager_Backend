@@ -3,24 +3,32 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Meeting;
 using SchoolOperations.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class MeetingsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public MeetingsController(SchoolDbContext context)
+        public MeetingsController(
+            SchoolDbContext context,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
 
         // GET: api/meetings
         // Gets all active meetings by default
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Meeting>>> GetMeetings(
             bool includeInactive = false)
         {
@@ -46,6 +54,7 @@ namespace SchoolOperations.Controllers
         // GET: api/meetings/1
         // Gets one meeting by ID
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<Meeting>> GetMeeting(int id)
         {
             // Find the meeting
@@ -54,20 +63,65 @@ namespace SchoolOperations.Controllers
                 .Include(m => m.Teacher)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            // If the meeting does not exist, return 404
+            // If the meeting does not exist
             if (meeting == null)
             {
                 return NotFound("Meeting does not exist.");
             }
 
-            // Return the meeting
-            return Ok(meeting);
+            // Admin can view any meeting
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(meeting);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Teacher can view only meetings assigned to them
+            if (User.IsInRole("Teacher"))
+            {
+                if (user.TeacherId != meeting.TeacherId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(meeting);
+            }
+
+            // Parent can view only meetings related to their child
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != meeting.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(meeting);
+            }
+
+            // Student has no meeting access
+            return Forbid();
         }
 
 
         // GET: api/meetings/student/3
-        // Gets all active meetings for a specific student
+        // Gets meetings for a specific student
         [HttpGet("student/{studentId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<Meeting>>> GetStudentMeetings(
             int studentId)
         {
@@ -75,26 +129,79 @@ namespace SchoolOperations.Controllers
             var studentExists = await _context.Students
                 .AnyAsync(s => s.Id == studentId);
 
-            // If the student does not exist, return 404
             if (!studentExists)
             {
                 return NotFound("Student does not exist.");
             }
 
-            // Get active meetings for the student
-            var meetings = await _context.Meetings
-                .Include(m => m.Student)
-                .Include(m => m.Teacher)
-                .Where(m => m.StudentId == studentId && m.IsActive)
-                .ToListAsync();
+            // Admin can view any student's meetings
+            if (User.IsInRole("Admin"))
+            {
+                var adminMeetings = await _context.Meetings
+                    .Include(m => m.Student)
+                    .Include(m => m.Teacher)
+                    .Where(m => m.StudentId == studentId && m.IsActive)
+                    .ToListAsync();
 
-            return Ok(meetings);
+                return Ok(adminMeetings);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Teacher can view meetings assigned to them
+            if (User.IsInRole("Teacher"))
+            {
+                var teacherMeetings = await _context.Meetings
+                    .Include(m => m.Student)
+                    .Include(m => m.Teacher)
+                    .Where(m =>
+                        m.StudentId == studentId &&
+                        m.TeacherId == user.TeacherId &&
+                        m.IsActive)
+                    .ToListAsync();
+
+                return Ok(teacherMeetings);
+            }
+
+            // Parent can view only their child's meetings
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var parentMeetings = await _context.Meetings
+                    .Include(m => m.Student)
+                    .Include(m => m.Teacher)
+                    .Where(m => m.StudentId == studentId && m.IsActive)
+                    .ToListAsync();
+
+                return Ok(parentMeetings);
+            }
+
+            return Forbid();
         }
 
 
         // GET: api/meetings/teacher/1
         // Gets all active meetings for a specific teacher
         [HttpGet("teacher/{teacherId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<Meeting>>> GetTeacherMeetings(
             int teacherId)
         {
@@ -102,26 +209,57 @@ namespace SchoolOperations.Controllers
             var teacherExists = await _context.Teachers
                 .AnyAsync(t => t.Id == teacherId);
 
-            // If the teacher does not exist, return 404
             if (!teacherExists)
             {
                 return NotFound("Teacher does not exist.");
             }
 
-            // Get active meetings for the teacher
-            var meetings = await _context.Meetings
-                .Include(m => m.Student)
-                .Include(m => m.Teacher)
-                .Where(m => m.TeacherId == teacherId && m.IsActive)
-                .ToListAsync();
+            // Admin can view any teacher's meetings
+            if (User.IsInRole("Admin"))
+            {
+                var adminMeetings = await _context.Meetings
+                    .Include(m => m.Student)
+                    .Include(m => m.Teacher)
+                    .Where(m => m.TeacherId == teacherId && m.IsActive)
+                    .ToListAsync();
 
-            return Ok(meetings);
+                return Ok(adminMeetings);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Teacher can view only their own meetings
+            if (User.IsInRole("Teacher"))
+            {
+                if (user.TeacherId != teacherId)
+                {
+                    return Forbid();
+                }
+
+                var teacherMeetings = await _context.Meetings
+                    .Include(m => m.Student)
+                    .Include(m => m.Teacher)
+                    .Where(m => m.TeacherId == teacherId && m.IsActive)
+                    .ToListAsync();
+
+                return Ok(teacherMeetings);
+            }
+
+            // Parents and Students cannot use this endpoint
+            return Forbid();
         }
 
 
         // POST: api/meetings
         // Creates a new meeting
         [HttpPost]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<Meeting>> CreateMeeting(
             CreateMeetingDto dto)
         {
@@ -157,6 +295,22 @@ namespace SchoolOperations.Controllers
                 return BadRequest("Teacher is inactive.");
             }
 
+            // A Teacher can create a meeting only for themselves
+            if (User.IsInRole("Teacher"))
+            {
+                var user = await _userManager.GetUserAsync(User);
+
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                if (user.TeacherId != dto.TeacherId)
+                {
+                    return Forbid();
+                }
+            }
+
             // Create the meeting entity
             var meeting = new Meeting
             {
@@ -187,6 +341,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/meetings/1
         // Updates an existing meeting
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> UpdateMeeting(
             int id,
             UpdateMeetingDto dto)
@@ -199,6 +354,22 @@ namespace SchoolOperations.Controllers
             if (meeting == null)
             {
                 return NotFound("Meeting does not exist.");
+            }
+
+            // A Teacher can update only meetings assigned to them
+            if (User.IsInRole("Teacher"))
+            {
+                var user = await _userManager.GetUserAsync(User);
+
+                if (user == null)
+                {
+                    return Unauthorized();
+                }
+
+                if (user.TeacherId != meeting.TeacherId)
+                {
+                    return Forbid();
+                }
             }
 
             // Validate the meeting status
@@ -226,6 +397,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/meetings/1/deactivate
         // Deactivates a meeting without deleting it
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateMeeting(int id)
         {
             // Find the meeting
@@ -257,6 +429,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/meetings/1/activate
         // Activates a previously deactivated meeting
         [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ActivateMeeting(int id)
         {
             // Find the meeting

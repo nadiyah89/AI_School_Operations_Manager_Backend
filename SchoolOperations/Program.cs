@@ -1,5 +1,12 @@
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using SchoolOperations.Data;
+using SchoolOperations.Models;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,13 +15,77 @@ builder.Services.AddDbContext<SchoolDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container.
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+    .AddEntityFrameworkStores<SchoolDbContext>()
+    .AddDefaultTokenProviders();
+
+
+// Configure JWT authentication
+builder.Services.AddAuthentication(options =>
+{
+    // JWT is the default authentication method
+    options.DefaultAuthenticateScheme =
+        JwtBearerDefaults.AuthenticationScheme;
+
+    options.DefaultChallengeScheme =
+        JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Read JWT configuration from appsettings.json
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        // Validate that the token was created by our application
+        ValidateIssuer = true,
+
+        // Validate that the token is intended for our application
+        ValidateAudience = true,
+
+        // Validate the signing key
+        ValidateIssuerSigningKey = true,
+
+        // Validate token expiration
+        ValidateLifetime = true,
+
+        //JWT Issuer
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+
+        //JWT Audience
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+
+        //JWT Signing key
+        IssuerSigningKey = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes(
+                builder.Configuration["Jwt:Key"]!)),
+
+        // Tell ASP.NET Core which claim represents the user's role
+        RoleClaimType = ClaimTypes.Role
+    };
+});
 
 builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    // Define JWT Bearer authentication for Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT Authorization header using the Bearer scheme."
+    });
+
+    // Require the JWT token for authorized endpoints
+    options.AddSecurityRequirement(document =>
+        new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+});
+
 
 var app = builder.Build();
 
@@ -27,8 +98,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed the default application roles
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+
+    await RoleSeeder.SeedRolesAsync(services);
+}
 
 app.Run();

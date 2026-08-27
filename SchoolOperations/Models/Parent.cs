@@ -19,6 +19,9 @@
         // Foreign key connecting Parent to Student
         public int StudentId { get; set; }
 
+        // Indicates whether the parent record is active
+        public bool IsActive { get; set; } = true;
+
         // Navigation property
         public Student Student { get; set; } = null!;
     }

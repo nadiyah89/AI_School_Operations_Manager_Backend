@@ -3,24 +3,31 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.FeeRecord;
 using SchoolOperations.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/[controller]")]
     public class FeeRecordsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public FeeRecordsController(SchoolDbContext context)
+        public FeeRecordsController(
+            SchoolDbContext context,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
-
 
         // GET: api/feerecords
         // Gets all active fee records by default
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<FeeRecord>>> GetFeeRecords(
             bool includeInactive = false)
         {
@@ -45,6 +52,7 @@ namespace SchoolOperations.Controllers
         // GET: api/feerecords/1
         // Gets one fee record by ID
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<FeeRecord>> GetFeeRecord(int id)
         {
             // Find the fee record
@@ -52,20 +60,64 @@ namespace SchoolOperations.Controllers
                 .Include(f => f.Student)
                 .FirstOrDefaultAsync(f => f.Id == id);
 
-            // If the fee record does not exist, return 404
             if (fee == null)
             {
                 return NotFound("Fee record does not exist.");
             }
 
-            // Return the fee record
-            return Ok(fee);
+            // Admin can view any fee record
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(fee);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own fee record
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != fee.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(fee);
+            }
+
+            // Parent can view only their child's fee record
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != fee.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(fee);
+            }
+
+            // Teacher and any other role have no access
+            return Forbid();
         }
 
 
         // GET: api/feerecords/student/3
         // Gets all active fee records for a specific student
         [HttpGet("student/{studentId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<FeeRecord>>> GetStudentFeeRecords(
             int studentId)
         {
@@ -73,25 +125,79 @@ namespace SchoolOperations.Controllers
             var studentExists = await _context.Students
                 .AnyAsync(s => s.Id == studentId);
 
-            // If the student does not exist, return 404
             if (!studentExists)
             {
                 return NotFound("Student does not exist.");
             }
 
-            // Get active fee records for the student
-            var fees = await _context.FeeRecords
-                .Include(f => f.Student)
-                .Where(f => f.StudentId == studentId && f.IsActive)
-                .ToListAsync();
+            // Admin can view any student's fees
+            if (User.IsInRole("Admin"))
+            {
+                var adminFees = await _context.FeeRecords
+                    .Include(f => f.Student)
+                    .Where(f => f.StudentId == studentId && f.IsActive)
+                    .ToListAsync();
 
-            return Ok(fees);
+                return Ok(adminFees);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own fees
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var studentFees = await _context.FeeRecords
+                    .Include(f => f.Student)
+                    .Where(f => f.StudentId == studentId && f.IsActive)
+                    .ToListAsync();
+
+                return Ok(studentFees);
+            }
+
+            // Parent can view only their child's fees
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var parentFees = await _context.FeeRecords
+                    .Include(f => f.Student)
+                    .Where(f => f.StudentId == studentId && f.IsActive)
+                    .ToListAsync();
+
+                return Ok(parentFees);
+            }
+
+            // Teacher and other roles have no access
+            return Forbid();
         }
 
 
         // POST: api/feerecords
         // Creates a new fee record
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<FeeRecord>> CreateFeeRecord(
             CreateFeeRecordDto dto)
         {
@@ -173,6 +279,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/feerecords/1
         // Updates an existing fee record
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateFeeRecord(
             int id,
             UpdateFeeRecordDto dto)
@@ -240,6 +347,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/feerecords/1/deactivate
         // Deactivates a fee record without deleting it
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateFeeRecord(int id)
         {
             // Find the fee record
@@ -271,6 +379,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/feerecords/2/activate
         // Activates a previously deactivated fee record
         [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ActivateFeeRecord(int id)
         {
             // Find the fee record

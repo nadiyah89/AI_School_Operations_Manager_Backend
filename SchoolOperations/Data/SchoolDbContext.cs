@@ -1,15 +1,16 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Models;
 
 namespace SchoolOperations.Data
 {
-    public class SchoolDbContext : DbContext
+    public class SchoolDbContext : IdentityDbContext<ApplicationUser>
     {
+        public SchoolDbContext(DbContextOptions<SchoolDbContext> options)
+            : base(options)
+        {
+        }
 
-      public SchoolDbContext(DbContextOptions<SchoolDbContext> options) : base(options)
-      {
-
-      }
         // Represents the Students table in the database
         public DbSet<Student> Students { get; set; }
 
@@ -43,7 +44,9 @@ namespace SchoolOperations.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Required by ASP.NET Core Identity
             base.OnModelCreating(modelBuilder);
+
 
             // Configure decimal precision for academic marks
             modelBuilder.Entity<AcademicPerformance>()
@@ -92,6 +95,27 @@ namespace SchoolOperations.Data
                 .HasOne(n => n.Parent)
                 .WithMany()
                 .HasForeignKey(n => n.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure ApplicationUser -> Student relationship
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Student)
+                .WithMany()
+                .HasForeignKey(u => u.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure ApplicationUser -> Teacher relationship
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Teacher)
+                .WithMany()
+                .HasForeignKey(u => u.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure ApplicationUser -> Parent relationship
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Parent)
+                .WithMany()
+                .HasForeignKey(u => u.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }

@@ -3,23 +3,33 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Attendance;
 using SchoolOperations.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+
 
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AttendanceController : ControllerBase
     {
         private readonly SchoolDbContext _context;
 
-        public AttendanceController(SchoolDbContext context)
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public AttendanceController(
+           SchoolDbContext context,
+           UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: api/attendance
         [HttpGet]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> GetAttendance()
         {
             var attendance = await _context.Attendances
@@ -32,7 +42,9 @@ namespace SchoolOperations.Controllers
 
         // GET: api/attendance/student/1
         [HttpGet("student/{studentId}")]
-        public async Task<IActionResult> GetStudentAttendance([FromRoute] int studentId)
+        [Authorize]
+        public async Task<IActionResult> GetStudentAttendance(
+            [FromRoute] int studentId)
         {
             // Check whether the student exists
             var studentExists = await _context.Students
@@ -43,18 +55,70 @@ namespace SchoolOperations.Controllers
                 return NotFound("Student does not exist.");
             }
 
-            // Get all attendance records for the student
-            var attendance = await _context.Attendances
-                .Where(a => a.StudentId == studentId)
-                .ToListAsync();
+            // Admin and Teacher can view any student's attendance
+            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            {
+                var attendance = await _context.Attendances
+                    .Where(a => a.StudentId == studentId)
+                    .ToListAsync();
 
-            return Ok(attendance);
+                return Ok(attendance);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own attendance
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var attendance = await _context.Attendances
+                    .Where(a => a.StudentId == studentId)
+                    .ToListAsync();
+
+                return Ok(attendance);
+            }
+
+            // Parent can view only their child's attendance
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var attendance = await _context.Attendances
+                    .Where(a => a.StudentId == studentId)
+                    .ToListAsync();
+
+                return Ok(attendance);
+            }
+
+            return Forbid();
         }
 
 
 
         // POST: api/attendance
         [HttpPost]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> CreateAttendance(CreateAttendanceDto dto)
         {
             // Find the student
@@ -105,6 +169,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/attendance/1
         // Updates an existing attendance record
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> UpdateAttendance(
             int id,
             UpdateAttendanceDto dto)

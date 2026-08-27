@@ -3,24 +3,32 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.AcademicPerformance;
 using SchoolOperations.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AcademicPerformanceController : ControllerBase
     {
         private readonly SchoolDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public AcademicPerformanceController(SchoolDbContext context)
+        public AcademicPerformanceController(
+            SchoolDbContext context,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
 
         // GET: api/academicperformance
         // Gets all academic performance records
         [HttpGet]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<IEnumerable<AcademicPerformance>>> GetAcademicPerformance(
     bool includeInactive = false)
         {
@@ -41,8 +49,9 @@ namespace SchoolOperations.Controllers
 
 
         // GET: api/academicperformance/student/1
-        // Gets all academic performance records for a specific student
+        // Gets academic performance records for a specific student
         [HttpGet("student/{studentId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<AcademicPerformance>>> GetStudentAcademicPerformance(
             int studentId)
         {
@@ -50,44 +59,139 @@ namespace SchoolOperations.Controllers
             var studentExists = await _context.Students
                 .AnyAsync(s => s.Id == studentId);
 
-            // If the student does not exist, return 404
             if (!studentExists)
             {
                 return NotFound("Student does not exist.");
             }
 
-            // Get all active academic performance records for the student
-            var performance = await _context.AcademicPerformances
-                .Where(a => a.StudentId == studentId && a.IsActive)
-                .ToListAsync();
+            // Admin and Teacher can view any student's performance
+            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            {
+                var performance = await _context.AcademicPerformances
+                    .Where(a => a.StudentId == studentId && a.IsActive)
+                    .ToListAsync();
 
-            return Ok(performance);
+                return Ok(performance);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own performance
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var performance = await _context.AcademicPerformances
+                    .Where(a => a.StudentId == studentId && a.IsActive)
+                    .ToListAsync();
+
+                return Ok(performance);
+            }
+
+            // Parent can view only their child's performance
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var performance = await _context.AcademicPerformances
+                    .Where(a => a.StudentId == studentId && a.IsActive)
+                    .ToListAsync();
+
+                return Ok(performance);
+            }
+
+            return Forbid();
         }
 
 
         // GET: api/academicperformance/1
         // Gets one academic performance record by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult<AcademicPerformance>> GetAcademicPerformanceById(int id)
+        [Authorize]
+        public async Task<ActionResult<AcademicPerformance>> GetAcademicPerformanceById(
+            int id)
         {
             // Find the academic performance record
             var performance = await _context.AcademicPerformances
                 .FirstOrDefaultAsync(a => a.Id == id);
 
-            // If the record does not exist, return 404
             if (performance == null)
             {
                 return NotFound("Academic performance record does not exist.");
             }
 
-            // Return the record
-            return Ok(performance);
+            // Admin and Teacher can view any performance record
+            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            {
+                return Ok(performance);
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own performance
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != performance.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(performance);
+            }
+
+            // Parent can view only their child's performance
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != performance.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(performance);
+            }
+
+            return Forbid();
         }
 
 
         // POST: api/academicperformance
         // Creates a new academic performance record
         [HttpPost]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<AcademicPerformance>> CreateAcademicPerformance(
             CreateAcademicPerformanceDto dto)
         {
@@ -152,6 +256,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/academicperformance/1
         // Updates an existing academic performance record
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<IActionResult> UpdateAcademicPerformance(
             int id,
             UpdateAcademicPerformanceDto dto)
@@ -202,6 +307,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/academicperformance/1/deactivate
         // Deactivates an academic performance record without deleting it
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateAcademicPerformance(int id)
         {
             // Find the academic performance record
@@ -235,6 +341,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/academicperformance/1/activate
         // Activates an academic performance record
         [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ActivateAcademicPerformance(int id)
         {
             // Find the academic performance record

@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Admission;
 using SchoolOperations.Models;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AdmissionsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
@@ -22,6 +24,7 @@ namespace SchoolOperations.Controllers
         // GET: api/admissions
         // Gets all admission applications
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<AdmissionApplication>>> GetAdmissions()
         {
             // Get all admission applications from the database
@@ -37,6 +40,7 @@ namespace SchoolOperations.Controllers
         // GET: api/admissions/1
         // Gets a single admission application by ID
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<AdmissionApplication>> GetAdmission(int id)
         {
             // Find the admission application with the given ID
@@ -58,6 +62,7 @@ namespace SchoolOperations.Controllers
         // POST: api/admissions
         // Creates a new admission application
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<AdmissionApplication>> CreateAdmission(
             CreateAdmissionDto dto)
         {
@@ -91,6 +96,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1
         // Updates an existing admission application
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateAdmission(
             int id,
             UpdateAdmissionDto dto)
@@ -127,6 +133,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1/approve
         // Approves a pending admission application
         [HttpPut("{id}/approve")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ApproveAdmission(int id)
         {
             // Find the admission application
@@ -160,6 +167,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1/reject
         // Rejects a pending admission application
         [HttpPut("{id}/reject")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> RejectAdmission(int id)
         {
             // Find the admission application
@@ -193,6 +201,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1/waitlist
         // Places a pending admission application on the waiting list
         [HttpPut("{id}/waitlist")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> WaitlistAdmission(int id)
         {
             // Find the admission application
@@ -227,6 +236,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1/create-student
         // Creates an official Student from an approved admission application
         [HttpPut("{id}/create-student")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateStudentFromAdmission(int id)
         {
             // Find the admission application
@@ -285,6 +295,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/admissions/1/create-parent
         // Creates a Parent from an approved admission application
         [HttpPut("{id}/create-parent")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateParentFromAdmission(
             int id,
             CreateParentFromAdmissionDto dto)

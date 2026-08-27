@@ -1,25 +1,35 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
-using SchoolOperations.Models;
 using SchoolOperations.DTOs.Student;
+using SchoolOperations.Models;
 
 namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class StudentsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
 
-        public StudentsController(SchoolDbContext context)
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public StudentsController(
+            SchoolDbContext context,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: api/students
         // Gets active students by default
         [HttpGet]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<IEnumerable<Student>>> GetStudents(
             bool includeInactive = false)
         {
@@ -39,29 +49,71 @@ namespace SchoolOperations.Controllers
         }
 
 
-        // GET: api/students/1
-        // Gets a single student by ID
         [HttpGet("{id}")]
-        public async Task<ActionResult<Student>> GetStudent(int id)
+        [Authorize]
+        public async Task<IActionResult> GetStudent(int id)
         {
-            // Find the student with the given ID
             var student = await _context.Students
                 .FirstOrDefaultAsync(s => s.Id == id);
 
-            // If the student does not exist, return 404
             if (student == null)
             {
-                return NotFound("Student does not exist.");
+                return NotFound("Student not found.");
             }
 
-            // Return the student
-            return Ok(student);
+            // Admin and Teacher can view any student
+            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            {
+                return Ok(student);
+            }
+
+            // Get the currently logged-in ApplicationUser
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own record
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != student.Id)
+                {
+                    return Forbid();
+                }
+
+                return Ok(student);
+            }
+
+            // Parent can view only their own child's record
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                // Check whether this student belongs to this parent
+                if (parent.StudentId != student.Id)
+                {
+                    return Forbid();
+                }
+
+                return Ok(student);
+            }
+
+            return Forbid();
         }
 
 
         // POST: api/students
         // Creates a new student
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateStudent(CreateStudentDto dto)
         {
             // Create a Student entity from the DTO
@@ -88,6 +140,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/students/1
         // Updates an existing student
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateStudent(
             int id,
             UpdateStudentDto dto)
@@ -118,6 +171,7 @@ namespace SchoolOperations.Controllers
         // PUT: api/students/1/deactivate
         // Deactivates a student without deleting the database record
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateStudent(int id)
         {
             // Find the student
@@ -146,6 +200,38 @@ namespace SchoolOperations.Controllers
             return Ok(student);
         }
 
+
+        // PUT: api/students/1/activate
+        // Activates a previously deactivated student
+        [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ActivateStudent(int id)
+        {
+            // Find the student
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            // If the student does not exist, return 404
+            if (student == null)
+            {
+                return NotFound("Student does not exist.");
+            }
+
+            // If the student is already active, return a bad request
+            if (student.IsActive)
+            {
+                return BadRequest("Student is already active.");
+            }
+
+            // Activate the student
+            student.IsActive = true;
+
+            // Save the change to the database
+            await _context.SaveChangesAsync();
+
+            // Return the updated student
+            return Ok(student);
+        }
 
 
     }

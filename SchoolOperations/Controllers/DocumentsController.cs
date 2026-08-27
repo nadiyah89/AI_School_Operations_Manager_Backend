@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Document;
@@ -8,6 +9,7 @@ namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class DocumentsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
@@ -19,8 +21,9 @@ namespace SchoolOperations.Controllers
 
 
         // GET: api/documents
-        // Gets active documents by default
+        // Admin, Teacher, Parent and Student can view documents
         [HttpGet]
+        [Authorize(Roles = "Admin,Teacher,Parent,Student")]
         public async Task<ActionResult<IEnumerable<Document>>> GetDocuments(
             bool includeInactive = false)
         {
@@ -41,149 +44,184 @@ namespace SchoolOperations.Controllers
 
 
         // GET: api/documents/1
-        // Gets a single document by ID
+        // Gets one document
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin,Teacher,Parent,Student")]
         public async Task<ActionResult<Document>> GetDocument(int id)
         {
-            // Find the document with the given ID
+            // Find the document
             var document = await _context.Documents
                 .FirstOrDefaultAsync(d => d.Id == id);
 
-            // If the document does not exist, return 404
+            // If document does not exist
             if (document == null)
             {
                 return NotFound("Document does not exist.");
             }
 
-            // Return the document
             return Ok(document);
         }
 
 
         // POST: api/documents
-        // Creates a new document
+        // Only Admin can create documents
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Document>> CreateDocument(
             CreateDocumentDto dto)
         {
-            // Create the database entity from the DTO
+            // Validate title
+            if (string.IsNullOrWhiteSpace(dto.Title))
+            {
+                return BadRequest("Document title is required.");
+            }
+
+            // Validate category
+            if (string.IsNullOrWhiteSpace(dto.Category))
+            {
+                return BadRequest("Document category is required.");
+            }
+
+            // Validate content
+            if (string.IsNullOrWhiteSpace(dto.Content))
+            {
+                return BadRequest("Document content is required.");
+            }
+
+            // Create document entity
             var document = new Document
             {
                 Title = dto.Title,
                 Category = dto.Category,
-                Content = dto.Content
+                Content = dto.Content,
+
+                // New documents are active
+                IsActive = true,
+
+                // CreatedAt and UpdatedAt are set automatically
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
-            // Add the document to the database context
+            // Add document
             _context.Documents.Add(document);
 
-            // Save the document to SQL Server
+            // Save to database
             await _context.SaveChangesAsync();
 
-            // Return the newly created document
             return Ok(document);
         }
 
 
         // PUT: api/documents/1
-        // Updates an existing document
+        // Only Admin can update documents
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateDocument(
             int id,
             UpdateDocumentDto dto)
         {
-            // Find the existing document
+            // Find existing document
             var document = await _context.Documents
                 .FirstOrDefaultAsync(d => d.Id == id);
 
-            // If the document does not exist, return 404
+            // If document does not exist
             if (document == null)
             {
                 return NotFound("Document does not exist.");
             }
 
-            // Update the document information
+            // Validate title
+            if (string.IsNullOrWhiteSpace(dto.Title))
+            {
+                return BadRequest("Document title is required.");
+            }
+
+            // Validate category
+            if (string.IsNullOrWhiteSpace(dto.Category))
+            {
+                return BadRequest("Document category is required.");
+            }
+
+            // Validate content
+            if (string.IsNullOrWhiteSpace(dto.Content))
+            {
+                return BadRequest("Document content is required.");
+            }
+
+            // Update document
             document.Title = dto.Title;
             document.Category = dto.Category;
             document.Content = dto.Content;
 
-            // Update the modification timestamp
+            // Update modification time
             document.UpdatedAt = DateTime.UtcNow;
 
-            // Save the changes to the database
+            // Save changes
             await _context.SaveChangesAsync();
 
-            // Return the updated document
             return Ok(document);
         }
 
 
         // PUT: api/documents/1/deactivate
-        // Deactivates a document without deleting the database record
+        // Only Admin can deactivate
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateDocument(int id)
         {
-            // Find the document
+            // Find document
             var document = await _context.Documents
                 .FirstOrDefaultAsync(d => d.Id == id);
 
-            // If the document does not exist, return 404
             if (document == null)
             {
                 return NotFound("Document does not exist.");
             }
 
-            // If the document is already inactive, return a bad request
+            // Check current state
             if (!document.IsActive)
             {
                 return BadRequest("Document is already inactive.");
             }
 
-            // Deactivate the document
+            // Deactivate
             document.IsActive = false;
-
-            // Update the modification timestamp
             document.UpdatedAt = DateTime.UtcNow;
 
-            // Save the change to the database
             await _context.SaveChangesAsync();
 
-            // Return the updated document
             return Ok(document);
         }
 
 
         // PUT: api/documents/1/activate
-        // Activates a document that was previously deactivated
+        // Only Admin can activate
         [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ActivateDocument(int id)
         {
-            // Find the document
+            // Find document
             var document = await _context.Documents
                 .FirstOrDefaultAsync(d => d.Id == id);
 
-            // If the document does not exist, return 404
             if (document == null)
             {
                 return NotFound("Document does not exist.");
             }
 
-            // If the document is already active, return a bad request
+            // Check current state
             if (document.IsActive)
             {
                 return BadRequest("Document is already active.");
             }
 
-            // Activate the document
+            // Activate
             document.IsActive = true;
-
-            // Update the modification timestamp
             document.UpdatedAt = DateTime.UtcNow;
 
-            // Save the change to the database
             await _context.SaveChangesAsync();
 
-            // Return the updated document
             return Ok(document);
         }
     }

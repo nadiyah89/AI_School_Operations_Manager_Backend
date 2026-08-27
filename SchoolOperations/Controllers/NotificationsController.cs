@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Notification;
@@ -8,35 +10,39 @@ namespace SchoolOperations.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class NotificationsController : ControllerBase
     {
         private readonly SchoolDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public NotificationsController(SchoolDbContext context)
+        public NotificationsController(
+            SchoolDbContext context,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
 
         // GET: api/notifications
-        // Gets all active notifications by default
+        // Admin can view all notifications.
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Notification>>> GetNotifications(
             bool includeInactive = false)
         {
-            // Start with all notifications
             var query = _context.Notifications
                 .Include(n => n.Student)
                 .Include(n => n.Parent)
                 .AsQueryable();
 
-            // By default, return only active notifications
+            // By default, return only active notifications.
             if (!includeInactive)
             {
                 query = query.Where(n => n.IsActive);
             }
 
-            // Execute the query
             var notifications = await query.ToListAsync();
 
             return Ok(notifications);
@@ -44,133 +50,282 @@ namespace SchoolOperations.Controllers
 
 
         // GET: api/notifications/1
-        // Gets one notification by ID
+        // Admin can view any notification.
+        // Student can view their own notification.
+        // Parent can view their child's notification.
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<Notification>> GetNotification(int id)
         {
-            // Find the notification
             var notification = await _context.Notifications
                 .Include(n => n.Student)
                 .Include(n => n.Parent)
                 .FirstOrDefaultAsync(n => n.Id == id);
 
-            // If the notification does not exist, return 404
             if (notification == null)
             {
                 return NotFound("Notification does not exist.");
             }
 
-            // Return the notification
-            return Ok(notification);
+            // Admin can view any notification.
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(notification);
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own notification.
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != notification.StudentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(notification);
+            }
+
+            // Parent can view only notifications belonging
+            // to their child.
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.Id != notification.ParentId)
+                {
+                    return Forbid();
+                }
+
+                return Ok(notification);
+            }
+
+            // Teachers do not have notification viewing access.
+            return Forbid();
         }
 
 
         // GET: api/notifications/student/3
-        // Gets all active notifications for a specific student
+        // Admin can view any student's notifications.
+        // Student can view only their own notifications.
+        // Parent can view their child's notifications.
         [HttpGet("student/{studentId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<Notification>>> GetStudentNotifications(
             int studentId)
         {
-            // Check whether the student exists
+            // Check whether the student exists.
             var studentExists = await _context.Students
                 .AnyAsync(s => s.Id == studentId);
 
-            // If the student does not exist, return 404
             if (!studentExists)
             {
                 return NotFound("Student does not exist.");
             }
 
-            // Get active notifications for the student
-            var notifications = await _context.Notifications
-                .Include(n => n.Student)
-                .Include(n => n.Parent)
-                .Where(n => n.StudentId == studentId && n.IsActive)
-                .ToListAsync();
+            // Admin can view any student's notifications.
+            if (User.IsInRole("Admin"))
+            {
+                var adminNotifications = await _context.Notifications
+                    .Include(n => n.Student)
+                    .Include(n => n.Parent)
+                    .Where(n =>
+                        n.StudentId == studentId &&
+                        n.IsActive)
+                    .ToListAsync();
 
-            return Ok(notifications);
+                return Ok(adminNotifications);
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Student can view only their own notifications.
+            if (User.IsInRole("Student"))
+            {
+                if (user.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var studentNotifications = await _context.Notifications
+                    .Include(n => n.Student)
+                    .Include(n => n.Parent)
+                    .Where(n =>
+                        n.StudentId == studentId &&
+                        n.IsActive)
+                    .ToListAsync();
+
+                return Ok(studentNotifications);
+            }
+
+            // Parent can view notifications for their child.
+            if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                if (parent.StudentId != studentId)
+                {
+                    return Forbid();
+                }
+
+                var parentNotifications = await _context.Notifications
+                    .Include(n => n.Student)
+                    .Include(n => n.Parent)
+                    .Where(n =>
+                        n.StudentId == studentId &&
+                        n.IsActive)
+                    .ToListAsync();
+
+                return Ok(parentNotifications);
+            }
+
+            // Teachers do not have access.
+            return Forbid();
         }
 
 
         // GET: api/notifications/parent/2
-        // Gets all active notifications for a specific parent
+        // Admin can view any parent's notifications.
+        // Parent can view only their own notifications.
         [HttpGet("parent/{parentId}")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<Notification>>> GetParentNotifications(
             int parentId)
         {
-            // Check whether the parent exists
+            // Check whether the parent exists.
             var parentExists = await _context.Parents
                 .AnyAsync(p => p.Id == parentId);
 
-            // If the parent does not exist, return 404
             if (!parentExists)
             {
                 return NotFound("Parent does not exist.");
             }
 
-            // Get active notifications for the parent
-            var notifications = await _context.Notifications
-                .Include(n => n.Student)
-                .Include(n => n.Parent)
-                .Where(n => n.ParentId == parentId && n.IsActive)
-                .ToListAsync();
+            // Admin can view any parent's notifications.
+            if (User.IsInRole("Admin"))
+            {
+                var adminNotifications = await _context.Notifications
+                    .Include(n => n.Student)
+                    .Include(n => n.Parent)
+                    .Where(n =>
+                        n.ParentId == parentId &&
+                        n.IsActive)
+                    .ToListAsync();
 
-            return Ok(notifications);
+                return Ok(adminNotifications);
+            }
+
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Parent can view only their own notifications.
+            if (User.IsInRole("Parent"))
+            {
+                if (user.ParentId != parentId)
+                {
+                    return Forbid();
+                }
+
+                var parentNotifications = await _context.Notifications
+                    .Include(n => n.Student)
+                    .Include(n => n.Parent)
+                    .Where(n =>
+                        n.ParentId == parentId &&
+                        n.IsActive)
+                    .ToListAsync();
+
+                return Ok(parentNotifications);
+            }
+
+            // Students and Teachers cannot use this endpoint.
+            return Forbid();
         }
 
+
         // POST: api/notifications
-        // Creates a new notification
+        // Admin and Teacher can create notifications.
         [HttpPost]
+        [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<Notification>> CreateNotification(
             CreateNotificationDto dto)
         {
-            // Check whether the student exists
+            // Check whether the student exists.
             var student = await _context.Students
                 .FirstOrDefaultAsync(s => s.Id == dto.StudentId);
 
-            // If the student does not exist, return 404
             if (student == null)
             {
                 return NotFound("Student does not exist.");
             }
 
-            // Notifications should only be created for active students
+            // Notifications should only be created for active students.
             if (!student.IsActive)
             {
                 return BadRequest("Student is inactive.");
             }
 
-            // Check whether the parent exists
+            // Check whether the parent exists.
             var parent = await _context.Parents
                 .FirstOrDefaultAsync(p => p.Id == dto.ParentId);
 
-            // If the parent does not exist, return 404
             if (parent == null)
             {
                 return NotFound("Parent does not exist.");
             }
 
+            // Make sure the parent actually belongs to the student.
+            if (parent.StudentId != dto.StudentId)
+            {
+                return BadRequest(
+                    "The selected parent does not belong to the selected student.");
+            }
 
-            // Validate the notification channel
+            // Validate notification channel.
             if (dto.Channel != "SMS" &&
                 dto.Channel != "Email")
             {
                 return BadRequest("Invalid channel. Use SMS or Email.");
             }
 
-            // Validate the notification type
+            // Validate notification type.
             if (string.IsNullOrWhiteSpace(dto.NotificationType))
             {
                 return BadRequest("Notification type is required.");
             }
 
-            // Validate the notification message
+            // Validate notification message.
             if (string.IsNullOrWhiteSpace(dto.Message))
             {
                 return BadRequest("Notification message is required.");
             }
 
-            // Create the notification entity
+            // Create the notification.
             var notification = new Notification
             {
                 StudentId = dto.StudentId,
@@ -179,55 +334,48 @@ namespace SchoolOperations.Controllers
                 Message = dto.Message,
                 Channel = dto.Channel,
 
-                // New notifications always start as Pending
+                // New notifications start as Pending.
                 Status = "Pending",
 
-                // CreatedAt is automatically set by the model
                 CreatedAt = DateTime.UtcNow,
 
-                // No successful sending has happened yet
                 SentAt = null,
 
-                // New notification is active
                 IsActive = true
             };
 
-            // Add the notification to the database
             _context.Notifications.Add(notification);
 
-            // Save the notification
             await _context.SaveChangesAsync();
 
-            // Return the newly created notification
             return Ok(notification);
         }
 
 
         // PUT: api/notifications/1
-        // Updates an existing notification
+        // Only Admin can update notifications.
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateNotification(
             int id,
             UpdateNotificationDto dto)
         {
-            // Find the existing notification
             var notification = await _context.Notifications
                 .FirstOrDefaultAsync(n => n.Id == id);
 
-            // If the notification does not exist, return 404
             if (notification == null)
             {
                 return NotFound("Notification does not exist.");
             }
 
-            // Validate the notification channel
+            // Validate channel.
             if (dto.Channel != "SMS" &&
                 dto.Channel != "Email")
             {
                 return BadRequest("Invalid channel. Use SMS or Email.");
             }
 
-            // Validate the notification status
+            // Validate status.
             if (dto.Status != "Pending" &&
                 dto.Status != "Sent" &&
                 dto.Status != "Failed")
@@ -236,107 +384,94 @@ namespace SchoolOperations.Controllers
                     "Invalid notification status. Use Pending, Sent, or Failed.");
             }
 
-            // Notification type is required
+            // Notification type is required.
             if (string.IsNullOrWhiteSpace(dto.NotificationType))
             {
                 return BadRequest("Notification type is required.");
             }
 
-            // Notification message is required
+            // Notification message is required.
             if (string.IsNullOrWhiteSpace(dto.Message))
             {
                 return BadRequest("Notification message is required.");
             }
 
-            // If the notification is marked as Sent,
-            // SentAt should contain the sending time
+            // Sent notifications must have SentAt.
             if (dto.Status == "Sent" && dto.SentAt == null)
             {
                 return BadRequest(
                     "SentAt is required when notification status is Sent.");
             }
 
-            // If the notification is not Sent,
-            // there should not be a successful sending time
+            // Pending and Failed notifications should not
+            // contain a successful sending time.
             if (dto.Status != "Sent")
             {
                 dto.SentAt = null;
             }
 
-            // Update notification information
             notification.NotificationType = dto.NotificationType;
             notification.Message = dto.Message;
             notification.Channel = dto.Channel;
             notification.Status = dto.Status;
             notification.SentAt = dto.SentAt;
 
-            // Save changes
             await _context.SaveChangesAsync();
 
-            // Return updated notification
             return Ok(notification);
         }
 
 
         // PUT: api/notifications/1/deactivate
-        // Deactivates a notification without deleting it
+        // Only Admin can deactivate notifications.
         [HttpPut("{id}/deactivate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeactivateNotification(int id)
         {
-            // Find the notification
             var notification = await _context.Notifications
                 .FirstOrDefaultAsync(n => n.Id == id);
 
-            // If the notification does not exist, return 404
             if (notification == null)
             {
                 return NotFound("Notification does not exist.");
             }
 
-            // If the notification is already inactive, return a bad request
             if (!notification.IsActive)
             {
                 return BadRequest("Notification is already inactive.");
             }
 
-            // Deactivate the notification
             notification.IsActive = false;
 
-            // Save the change to the database
             await _context.SaveChangesAsync();
 
-            // Return the updated notification
             return Ok(notification);
         }
 
+
         // PUT: api/notifications/1/activate
-        // Activates a previously deactivated notification
+        // Only Admin can activate notifications.
         [HttpPut("{id}/activate")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ActivateNotification(int id)
         {
-            // Find the notification
             var notification = await _context.Notifications
                 .FirstOrDefaultAsync(n => n.Id == id);
 
-            // If the notification does not exist, return 404
             if (notification == null)
             {
                 return NotFound("Notification does not exist.");
             }
 
-            // If the notification is already active, return a bad request
             if (notification.IsActive)
             {
                 return BadRequest("Notification is already active.");
             }
 
-            // Activate the notification
             notification.IsActive = true;
 
-            // Save the change to the database
             await _context.SaveChangesAsync();
 
-            // Return the updated notification
             return Ok(notification);
         }
     }
