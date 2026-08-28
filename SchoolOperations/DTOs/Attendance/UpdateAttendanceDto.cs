@@ -5,7 +5,8 @@
         // Attendance date
         public DateTime Date { get; set; }
 
-        // Whether the student was present
+        // True = Present
+        // False = Absent
         public bool IsPresent { get; set; }
     }
 }

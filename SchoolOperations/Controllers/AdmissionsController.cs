@@ -232,7 +232,6 @@ namespace SchoolOperations.Controllers
         }
 
 
-
         // PUT: api/admissions/1/create-student
         // Creates an official Student from an approved admission application
         [HttpPut("{id}/create-student")]
@@ -263,33 +262,51 @@ namespace SchoolOperations.Controllers
                     "Student has already been created from this admission application.");
             }
 
-            // Create the Student entity
-            var student = new Student
+            // Start a database transaction
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            try
             {
-                FirstName = admission.ApplicantFirstName,
-                LastName = admission.ApplicantLastName,
-                DateOfBirth = admission.DateOfBirth,
+                // Create the Student entity
+                var student = new Student
+                {
+                    FirstName = admission.ApplicantFirstName,
+                    LastName = admission.ApplicantLastName,
+                    DateOfBirth = admission.DateOfBirth,
 
-                // New students are active by default
-                IsActive = true
-            };
+                    // New students are active by default
+                    IsActive = true
+                };
 
-            // Add the Student to the database
-            _context.Students.Add(student);
+                // Add the Student to the database
+                _context.Students.Add(student);
 
-            // Save first so SQL Server generates the Student ID
-            await _context.SaveChangesAsync();
+                // Save so SQL Server generates the Student ID
+                await _context.SaveChangesAsync();
 
-            // Connect the admission application to the newly created Student
-            admission.StudentId = student.Id;
+                // Connect the admission application to the newly created Student
+                admission.StudentId = student.Id;
 
-            // Save the relationship
-            await _context.SaveChangesAsync();
+                // Save the relationship
+                await _context.SaveChangesAsync();
 
-            // Return the newly created Student
-            return Ok(student);
+                // Commit the entire operation
+                await transaction.CommitAsync();
+
+                // Return the newly created Student
+                return Ok(student);
+            }
+            catch
+            {
+                // Roll back everything if any database operation fails
+                await transaction.RollbackAsync();
+
+                return StatusCode(
+                    500,
+                    "An error occurred while creating the Student.");
+            }
         }
-
 
 
         // PUT: api/admissions/1/create-parent
@@ -300,75 +317,95 @@ namespace SchoolOperations.Controllers
             int id,
             CreateParentFromAdmissionDto dto)
         {
-            // Find the admission application
-            var admission = await _context.AdmissionApplications
-                .FirstOrDefaultAsync(a => a.Id == id);
+            // Start a database transaction
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
 
-            // If the admission application does not exist, return 404
-            if (admission == null)
+            try
             {
-                return NotFound("Admission application does not exist.");
+                // Find the admission application
+                var admission = await _context.AdmissionApplications
+                    .FirstOrDefaultAsync(a => a.Id == id);
+
+                if (admission == null)
+                {
+                    return NotFound("Admission application does not exist.");
+                }
+
+                // Only approved applications can create parents
+                if (admission.Status != "Approved")
+                {
+                    return BadRequest(
+                        $"Parent cannot be created because the admission application is {admission.Status}.");
+                }
+
+                // A Student must already exist
+                if (admission.StudentId == null)
+                {
+                    return BadRequest(
+                        "Student must be created before creating the Parent.");
+                }
+
+                // Prevent creating multiple parents from the same admission
+                if (admission.ParentId != null)
+                {
+                    return BadRequest(
+                        "Parent has already been created from this admission application.");
+                }
+
+                // Check that the Student still exists
+                var student = await _context.Students
+                    .FirstOrDefaultAsync(s => s.Id == admission.StudentId);
+
+                if (student == null)
+                {
+                    return NotFound(
+                        "The Student associated with this admission does not exist.");
+                }
+
+                // Create the Parent entity
+                var parent = new Parent
+                {
+                    FirstName = dto.FirstName,
+                    LastName = dto.LastName,
+                    PhoneNumber = dto.PhoneNumber,
+                    Email = dto.Email,
+                    Relationship = dto.Relationship,
+
+                    // Connect Parent to the Student
+                    StudentId = student.Id
+                };
+
+                // Add Parent
+                _context.Parents.Add(parent);
+
+                // Save Parent
+                await _context.SaveChangesAsync();
+
+                // Connect admission to the newly created Parent
+                admission.ParentId = parent.Id;
+
+                // Save relationship
+                await _context.SaveChangesAsync();
+
+                // Commit transaction
+                await transaction.CommitAsync();
+
+                // Return newly created Parent
+                return Ok(parent);
             }
-
-            // Only approved applications can create parents
-            if (admission.Status != "Approved")
+            catch
             {
-                return BadRequest(
-                    $"Parent cannot be created because the admission application is {admission.Status}.");
+                // Roll back everything if any database operation fails
+                await transaction.RollbackAsync();
+
+                return StatusCode(
+                    500,
+                    "An error occurred while creating the Parent.");
             }
-
-            // A Student must already exist
-            if (admission.StudentId == null)
-            {
-                return BadRequest(
-                    "Student must be created before creating the Parent.");
-            }
-
-            // Prevent creating multiple parents from the same admission
-            if (admission.ParentId != null)
-            {
-                return BadRequest(
-                    "Parent has already been created from this admission application.");
-            }
-
-            // Check that the Student still exists
-            var student = await _context.Students
-                .FirstOrDefaultAsync(s => s.Id == admission.StudentId);
-
-            if (student == null)
-            {
-                return NotFound(
-                    "The Student associated with this admission does not exist.");
-            }
-
-            // Create the Parent entity
-            var parent = new Parent
-            {
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                PhoneNumber = dto.PhoneNumber,
-                Email = dto.Email,
-                Relationship = dto.Relationship,
-
-                // Connect the Parent to the Student created from this admission
-                StudentId = student.Id
-            };
-
-            // Add the Parent to the database
-            _context.Parents.Add(parent);
-
-            // Save first so SQL Server generates the Parent ID
-            await _context.SaveChangesAsync();
-
-            // Connect the admission application to the newly created Parent
-            admission.ParentId = parent.Id;
-
-            // Save the relationship
-            await _context.SaveChangesAsync();
-
-            // Return the newly created Parent
-            return Ok(parent);
         }
+
+
 
 
     }

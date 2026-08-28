@@ -80,6 +80,14 @@ namespace SchoolOperations.Controllers
                 {
                     return BadRequest("Student is inactive.");
                 }
+
+                var studentAlreadyLinked = await _context.Users
+                    .AnyAsync(u => u.StudentId == dto.StudentId.Value);
+
+                if (studentAlreadyLinked)
+                {
+                    return BadRequest("This Student already has an account.");
+                }
             }
 
 
@@ -103,6 +111,14 @@ namespace SchoolOperations.Controllers
                 {
                     return BadRequest("Teacher is inactive.");
                 }
+
+                var teacherAlreadyLinked = await _context.Users
+                      .AnyAsync(u => u.TeacherId == dto.TeacherId.Value);
+
+                if (teacherAlreadyLinked)
+                {
+                    return BadRequest("This Teacher already has an account.");
+                }
             }
 
 
@@ -120,6 +136,14 @@ namespace SchoolOperations.Controllers
                 if (parent == null)
                 {
                     return NotFound("Parent does not exist.");
+                }
+
+                var parentAlreadyLinked = await _context.Users
+                      .AnyAsync(u => u.ParentId == dto.ParentId.Value);
+
+                if (parentAlreadyLinked)
+                {
+                    return BadRequest("This Parent already has an account.");
                 }
             }
 

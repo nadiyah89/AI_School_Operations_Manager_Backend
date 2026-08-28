@@ -2,18 +2,23 @@
 {
     public class Attendance
     {
+        // Unique identifier for the attendance record
         public int Id { get; set; }
 
-        // ID of the student this attendance belongs to
+        // Foreign key connecting attendance to Student
         public int StudentId { get; set; }
 
         // Date of the attendance record
         public DateTime Date { get; set; }
 
-        // Whether the student was present
+        // True = Present
+        // False = Absent
         public bool IsPresent { get; set; }
 
-        // Navigation property to the related student
+        // Indicates whether the attendance record is active
+        public bool IsActive { get; set; } = true;
+
+        // Navigation property to Student
         public Student? Student { get; set; }
     }
 }

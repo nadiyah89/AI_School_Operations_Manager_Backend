@@ -117,6 +117,24 @@ namespace SchoolOperations.Data
                 .WithMany()
                 .HasForeignKey(u => u.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+
+            // Ensure each Student can have only one application account
+            modelBuilder.Entity<ApplicationUser>()
+                .HasIndex(u => u.StudentId)
+                .IsUnique();
+
+            // Ensure each Parent can have only one application account
+            modelBuilder.Entity<ApplicationUser>()
+                .HasIndex(u => u.ParentId)
+                .IsUnique();
+
+            // Ensure each Teacher can have only one application account
+            modelBuilder.Entity<ApplicationUser>()
+                .HasIndex(u => u.TeacherId)
+                .IsUnique();
+
+
         }
     }
 }
