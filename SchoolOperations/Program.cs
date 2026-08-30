@@ -4,9 +4,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using SchoolOperations.Data;
 using SchoolOperations.Models;
-using Microsoft.OpenApi;
+using SchoolOperations.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,8 @@ builder.Services.AddDbContext<SchoolDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<SchoolDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.AddScoped<AttendanceService>();
 
 
 // Configure JWT authentication
@@ -104,12 +107,16 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed the default application roles
+// Seed default application roles and development attendance data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
 
     await RoleSeeder.SeedRolesAsync(services);
+
+    var context = services.GetRequiredService<SchoolDbContext>();
+
+    await AttendanceTestDataSeeder.SeedAttendanceAsync(context);
 }
 
 app.Run();

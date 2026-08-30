@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.Attendance;
 using SchoolOperations.Models;
+using SchoolOperations.Services;
 
 namespace SchoolOperations.Controllers
 {
@@ -16,12 +17,16 @@ namespace SchoolOperations.Controllers
         private readonly SchoolDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
+        private readonly AttendanceService _attendanceService;
+
         public AttendanceController(
-            SchoolDbContext context,
-            UserManager<ApplicationUser> userManager)
+             SchoolDbContext context,
+             UserManager<ApplicationUser> userManager,
+             AttendanceService attendanceService)
         {
             _context = context;
             _userManager = userManager;
+            _attendanceService = attendanceService;
         }
 
 
@@ -186,6 +191,43 @@ namespace SchoolOperations.Controllers
             // Any other role is not allowed
             return Forbid();
         }
+
+
+        // ============================================================
+        // GET: api/attendance/summary
+        //
+        // Admin and Teacher can view attendance summaries.
+        //
+        // Optional threshold:
+        // Example:
+        // GET: api/attendance/summary?threshold=75
+        //
+        // If threshold is provided, only students whose attendance
+        // percentage is below that threshold are returned.
+        // ============================================================
+
+        [HttpGet("summary")]
+        [Authorize(Roles = "Admin,Teacher")]
+        public async Task<IActionResult> GetAttendanceSummary(
+            decimal? threshold = null)
+        {
+            // Validate the threshold if one was provided.
+            if (threshold.HasValue &&
+                (threshold.Value < 0 || threshold.Value > 100))
+            {
+                return BadRequest(
+                    "Attendance threshold must be between 0 and 100.");
+            }
+
+            // Ask the service to calculate the attendance summaries.
+            var summaries =
+                await _attendanceService.GetAttendanceSummaryAsync(threshold);
+
+            // Return the calculated results.
+            return Ok(summaries);
+        }
+
+
 
 
         // ============================================================
