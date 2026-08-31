@@ -22,6 +22,8 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddScoped<AttendanceService>();
 
+builder.Services.AddScoped<IAcademicPerformanceService,AcademicPerformanceService>();
+
 
 // Configure JWT authentication
 builder.Services.AddAuthentication(options =>

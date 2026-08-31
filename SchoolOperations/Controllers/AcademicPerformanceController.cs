@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SchoolOperations.Data;
 using SchoolOperations.DTOs.AcademicPerformance;
 using SchoolOperations.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
+using SchoolOperations.Services;
 
 namespace SchoolOperations.Controllers
 {
@@ -16,12 +17,16 @@ namespace SchoolOperations.Controllers
         private readonly SchoolDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
 
+        private readonly IAcademicPerformanceService _academicPerformanceService;
+
         public AcademicPerformanceController(
-            SchoolDbContext context,
-            UserManager<ApplicationUser> userManager)
+               SchoolDbContext context,
+               UserManager<ApplicationUser> userManager,
+               IAcademicPerformanceService academicPerformanceService)
         {
             _context = context;
             _userManager = userManager;
+            _academicPerformanceService = academicPerformanceService;
         }
 
 
@@ -122,6 +127,53 @@ namespace SchoolOperations.Controllers
 
             return Forbid();
         }
+
+
+
+        // GET: api/academicperformance/poor?threshold=60&subject=Math
+        // Gets students whose latest performance is below the given threshold
+        [HttpGet("poor")]
+        [Authorize(Roles = "Admin,Teacher")]
+        public async Task<ActionResult<IEnumerable<PoorPerformanceSummaryDto>>>
+            GetStudentsBelowPerformanceThreshold(
+                [FromQuery] decimal threshold,
+                [FromQuery] string? subject = null)
+        {
+            // Threshold must be between 0 and 100
+            if (threshold < 0 || threshold > 100)
+            {
+                return BadRequest(
+                    "Threshold must be between 0 and 100.");
+            }
+
+            // Ask the service to perform the academic analytics
+            var results =
+                await _academicPerformanceService
+                    .GetStudentsBelowPerformanceThresholdAsync(
+                        threshold,
+                        subject);
+
+            return Ok(results);
+        }
+
+
+        // GET: api/academicperformance/declining?subject=Math
+        // Gets students whose latest performance is lower than their previous exam
+        [HttpGet("declining")]
+        [Authorize(Roles = "Admin,Teacher")]
+        public async Task<ActionResult<IEnumerable<DecliningPerformanceSummaryDto>>>
+            GetStudentsWithDecliningPerformance(
+                [FromQuery] string? subject = null)
+        {
+            // Ask the service to perform declining performance analytics
+            var results =
+                await _academicPerformanceService
+                    .GetStudentsWithDecliningPerformanceAsync(subject);
+
+            return Ok(results);
+        }
+
+
 
 
         // GET: api/academicperformance/1
