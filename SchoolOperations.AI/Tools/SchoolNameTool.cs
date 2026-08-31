@@ -13,10 +13,18 @@ public class SchoolNameTool : ITool
     public Dictionary<string, Schema> Parameters =>
         new();
 
-    public Task<object> ExecuteAsync(
-        Dictionary<string, object> arguments)
+
+    // =========================================================
+    // Execute School Name Tool
+    // =========================================================
+
+    public Task<ToolResult> ExecuteAsync(
+        Dictionary<string, object> arguments,
+        AIToolContext context)
     {
-        return Task.FromResult<object>(
-            "ABC International School");
+        // The tool successfully retrieved the school name.
+        return Task.FromResult(
+            ToolResult.Ok(
+                "ABC International School"));
     }
 }

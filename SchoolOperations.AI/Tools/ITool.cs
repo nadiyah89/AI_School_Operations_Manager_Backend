@@ -4,12 +4,17 @@ namespace SchoolOperations.AI.Tools;
 
 public interface ITool
 {
+    // Unique name Gemini uses to identify the tool.
     string Name { get; }
 
+    // Description Gemini uses to understand the tool.
     string Description { get; }
 
+    // Parameters expected by the tool.
     Dictionary<string, Schema> Parameters { get; }
 
-    Task<object> ExecuteAsync(
-        Dictionary<string, object> arguments);
+    // Every AI tool now follows the common ToolResult contract.
+    Task<ToolResult> ExecuteAsync(
+    Dictionary<string, object> arguments,
+    AIToolContext context);
 }

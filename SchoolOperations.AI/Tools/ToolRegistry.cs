@@ -15,16 +15,20 @@ public class ToolRegistry
         _tools[tool.Name] = tool;
     }
 
+
     // ---------------------------------------------------------
     // Find a tool by name
     // ---------------------------------------------------------
 
     public ITool? GetTool(string name)
     {
-        _tools.TryGetValue(name, out var tool);
+        _tools.TryGetValue(
+            name,
+            out var tool);
 
         return tool;
     }
+
 
     // ---------------------------------------------------------
     // Create Gemini tool declarations
