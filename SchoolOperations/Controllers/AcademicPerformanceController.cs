@@ -178,7 +178,7 @@ namespace SchoolOperations.Controllers
 
         // GET: api/academicperformance/1
         // Gets one academic performance record by ID
-        [HttpGet("{id}")]
+        [HttpGet("{id:int}")]
         [Authorize]
         public async Task<ActionResult<AcademicPerformance>> GetAcademicPerformanceById(
             int id)

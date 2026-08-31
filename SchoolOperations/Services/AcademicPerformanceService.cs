@@ -32,7 +32,8 @@ namespace SchoolOperations.Services
                 .Include(a => a.Student)
                 .Where(a =>
                     a.IsActive &&
-                    a.Student.IsActive)
+                    a.Student.IsActive &&
+                    a.MaximumMarks > 0)
                 .AsQueryable();
 
             // Filter by subject when one is provided
@@ -54,7 +55,9 @@ namespace SchoolOperations.Services
                 .GroupBy(a => new
                 {
                     a.StudentId,
-                    a.Subject
+
+                    NormalizedSubject =
+                        NormalizeSubject(a.Subject)
                 })
                 .Select(group =>
                 {
@@ -115,7 +118,8 @@ namespace SchoolOperations.Services
                 .Include(a => a.Student)
                 .Where(a =>
                     a.IsActive &&
-                    a.Student.IsActive)
+                    a.Student.IsActive &&
+                    a.MaximumMarks > 0)
                 .AsQueryable();
 
             // Filter by subject when one is provided
@@ -137,7 +141,9 @@ namespace SchoolOperations.Services
                 .GroupBy(a => new
                 {
                     a.StudentId,
-                    a.Subject
+
+                    NormalizedSubject =
+                          NormalizeSubject(a.Subject)
                 })
                 .Where(group =>
                     group.Count() >= 2)
