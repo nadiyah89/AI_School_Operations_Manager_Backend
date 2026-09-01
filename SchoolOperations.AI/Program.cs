@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SchoolOperations.AI.Orchestration;
 using SchoolOperations.AI.Tools;
 
+
 // ---------------------------------------------------------
 // 1. Read Gemini API key
 // ---------------------------------------------------------
@@ -55,36 +56,52 @@ registry.Register(
 
 
 // ---------------------------------------------------------
-// 6. Create HttpClient for AttendanceTool
+// 6. Create HttpClientFactory
 // ---------------------------------------------------------
 
 var httpClientFactory =
     serviceProvider
         .GetRequiredService<IHttpClientFactory>();
 
-var attendanceHttpClient =
-    httpClientFactory.CreateClient();
-
 
 // ---------------------------------------------------------
-// 7. Create AttendanceTool
+// 7. Create and register AttendanceTool
 // ---------------------------------------------------------
 
 var attendanceTool =
     new AttendanceTool(
-        attendanceHttpClient);
-
-
-// ---------------------------------------------------------
-// 8. Register AttendanceTool
-// ---------------------------------------------------------
+        httpClientFactory.CreateClient());
 
 registry.Register(
     attendanceTool);
 
 
 // ---------------------------------------------------------
-// 9. Create AI Orchestrator
+// 8. Create and register PoorPerformanceTool
+// ---------------------------------------------------------
+
+var poorPerformanceTool =
+    new PoorPerformanceTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    poorPerformanceTool);
+
+
+// ---------------------------------------------------------
+// 9. Create and register DecliningPerformanceTool
+// ---------------------------------------------------------
+
+var decliningPerformanceTool =
+    new DecliningPerformanceTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    decliningPerformanceTool);
+
+
+// ---------------------------------------------------------
+// 10. Create AI Orchestrator
 // ---------------------------------------------------------
 
 var orchestrator =
@@ -94,16 +111,14 @@ var orchestrator =
 
 
 // ---------------------------------------------------------
-// 10. Admin JWT
+// 11. Read user JWT
 // ---------------------------------------------------------
 //
 // Get this from:
 //
 // POST /api/Auth/login
 //
-// Paste your Admin JWT below.
-//
-// DO NOT include "Bearer " here.
+// Do NOT include "Bearer ".
 // ---------------------------------------------------------
 
 Console.Write(
@@ -114,34 +129,32 @@ var accessToken =
 
 
 // ---------------------------------------------------------
-// 11. Send request to AI Agent
-// ---------------------------------------------------------
-//
-// Gemini should understand that this request requires
-// the AttendanceTool.
-//
-// Gemini should generate approximately:
-//
-// threshold = 75
-//
-// The AttendanceTool will then call the real backend.
+// 12. Send request to AI Agent
 // ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-          "Which students have attendance below 75%?",
+        "Show me students who scored below 60% academically " +
+        "and also students with declining academic performance.",
         accessToken);
 
 
 // ---------------------------------------------------------
-// 12. Display final AI response
+// 13. Display final AI response
 // ---------------------------------------------------------
 
 Console.WriteLine();
-Console.WriteLine("==========================================");
-Console.WriteLine("AI Response");
-Console.WriteLine("==========================================");
+
+Console.WriteLine(
+    "==========================================");
+
+Console.WriteLine(
+    "AI Response");
+
+Console.WriteLine(
+    "==========================================");
 
 Console.WriteLine(result);
 
 Console.WriteLine();
+

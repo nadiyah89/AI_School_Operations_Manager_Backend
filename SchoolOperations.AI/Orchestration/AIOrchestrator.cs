@@ -57,6 +57,15 @@ public class AIOrchestrator
 
                     Do not pretend that a tool succeeded
                     when it returned an error.
+
+                    When a user's request is ambiguous between multiple
+                    available tools or business meanings, ask a clarifying
+                    question instead of guessing.
+
+                    Do not invent missing thresholds, filters, or business rules.
+
+                    Only call a tool when the user's request clearly matches
+                    that tool's capability and the required information is available.
                     """
                 }
             ]
@@ -178,6 +187,12 @@ public class AIOrchestrator
             // 10. Execute requested tools
             // ---------------------------------------------------------
 
+            // -----------------------------------------------------
+            // 10. Collect all tool responses for this Gemini turn
+            // -----------------------------------------------------
+
+            var responseParts = new List<Part>();
+
             foreach (var functionCall in functionCalls)
             {
                 if (string.IsNullOrWhiteSpace(
@@ -283,38 +298,47 @@ public class AIOrchestrator
                 // 17. Send ToolResult back to Gemini
                 // -------------------------------------------------
 
-                var toolResponse =
+                // -------------------------------------------------
+                // 17. Add this tool response to the current turn
+                // -------------------------------------------------
+
+                responseParts.Add(
+                    new Part
+                    {
+                        FunctionResponse =
+                            new FunctionResponse
+                            {
+                                Name =
+                                    functionCall.Name,
+
+                                Response =
+                                    new Dictionary<string, object>
+                                    {
+                                        ["result"] =
+                                            toolResultForGemini!
+                                    }
+                            }
+                    });
+            }
+
+            // -----------------------------------------------------
+            // 18. Add all tool responses as one Gemini turn
+            // -----------------------------------------------------
+
+            if (responseParts.Count > 0)
+            {
+                contents.Add(
                     new Content
                     {
                         Parts =
-                        [
-                            new Part
-                            {
-                                FunctionResponse =
-                                    new FunctionResponse
-                                    {
-                                        Name =
-                                            functionCall.Name,
-
-                                        Response =
-                                            new Dictionary<string, object>
-                                            {
-                                                ["result"] =
-                                                    toolResultForGemini!
-                                            }
-                                    }
-                            }
-                        ]
-                    };
-
-
-                contents.Add(toolResponse);
+                            responseParts
+                    });
             }
         }
 
-
+        
         // ---------------------------------------------------------
-        // 18. Safety limit
+        // 19. Safety limit
         // ---------------------------------------------------------
 
         return
