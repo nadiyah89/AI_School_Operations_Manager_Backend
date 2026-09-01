@@ -49,6 +49,146 @@ namespace SchoolOperations.Controllers
         }
 
 
+
+        // GET: api/feerecords/outstanding
+        // Gets all active fee records with an outstanding balance
+        [HttpGet("outstanding")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<OutstandingFeeDto>>> GetOutstandingFeeRecords()
+        {
+            // Get active fee records for active students who still owe money
+            var outstandingFees = await _context.FeeRecords
+                .Include(f => f.Student)
+                .Where(f =>
+                    f.IsActive &&
+                    f.Student != null &&
+                    f.Student.IsActive &&
+                    f.PaidAmount < f.Amount)
+                .Select(f => new OutstandingFeeDto
+                {
+                    // Fee record information
+                    FeeRecordId = f.Id,
+                    StudentId = f.StudentId,
+
+                    // Student information
+                    StudentName = f.Student!.FirstName + " " + f.Student.LastName,
+
+                    // Fee information
+                    FeeType = f.FeeType,
+                    Amount = f.Amount,
+                    PaidAmount = f.PaidAmount,
+
+                    // Deterministic calculation performed by the backend
+                    OutstandingAmount = f.Amount - f.PaidAmount,
+
+                    DueDate = f.DueDate,
+                    Status = f.Status
+                })
+                .ToListAsync();
+
+            return Ok(outstandingFees);
+        }
+
+
+        // GET: api/feerecords/overdue
+        // Gets all active fee records that are overdue and still have an outstanding balance
+        [HttpGet("overdue")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<OutstandingFeeDto>>> GetOverdueFeeRecords()
+        {
+            // Get the current UTC time once for a consistent query
+            var currentTime = DateTime.UtcNow;
+
+            // Get active fee records for active students where:
+            // 1. The due date has passed
+            // 2. The student still owes money
+            var overdueFees = await _context.FeeRecords
+                .Include(f => f.Student)
+                .Where(f =>
+                    f.IsActive &&
+                    f.Student != null &&
+                    f.Student.IsActive &&
+                    f.DueDate < currentTime &&
+                    f.PaidAmount < f.Amount)
+                .Select(f => new OutstandingFeeDto
+                {
+                    // Fee record information
+                    FeeRecordId = f.Id,
+                    StudentId = f.StudentId,
+
+                    // Student information
+                    StudentName = f.Student!.FirstName + " " + f.Student.LastName,
+
+                    // Fee information
+                    FeeType = f.FeeType,
+                    Amount = f.Amount,
+                    PaidAmount = f.PaidAmount,
+
+                    // Deterministic calculation performed by the backend
+                    OutstandingAmount = f.Amount - f.PaidAmount,
+
+                    DueDate = f.DueDate,
+                    Status = f.Status
+                })
+                .ToListAsync();
+
+            return Ok(overdueFees);
+        }
+
+
+        // GET: api/feerecords/summary
+        // Gets a summary of active fee records for active students
+        [HttpGet("summary")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<FeeSummaryDto>> GetFeeSummary()
+        {
+            // Use one consistent time reference for overdue calculations
+            var currentTime = DateTime.UtcNow;
+
+            // Define the fee records included in the analytics summary
+            var query = _context.FeeRecords
+                .Include(f => f.Student)
+                .Where(f =>
+                    f.IsActive &&
+                    f.Student != null &&
+                    f.Student.IsActive);
+
+            // Calculate the summary using deterministic backend rules
+            var summary = new FeeSummaryDto
+            {
+                TotalFeeRecords = await query.CountAsync(),
+
+                TotalFeeAmount = await query
+                    .SumAsync(f => (decimal?)f.Amount) ?? 0,
+
+                TotalPaidAmount = await query
+                    .SumAsync(f => (decimal?)f.PaidAmount) ?? 0,
+
+                TotalOutstandingAmount = await query
+                    .SumAsync(f => (decimal?)(f.Amount - f.PaidAmount)) ?? 0,
+
+                PendingFeeRecords = await query
+                    .CountAsync(f => f.PaidAmount == 0),
+
+                PartiallyPaidFeeRecords = await query
+                    .CountAsync(f =>
+                        f.PaidAmount > 0 &&
+                        f.PaidAmount < f.Amount),
+
+                PaidFeeRecords = await query
+                    .CountAsync(f => f.PaidAmount == f.Amount),
+
+                OverdueFeeRecords = await query
+                    .CountAsync(f =>
+                        f.DueDate < currentTime &&
+                        f.PaidAmount < f.Amount)
+            };
+
+            return Ok(summary);
+        }
+
+
+
         // GET: api/feerecords/1
         // Gets one fee record by ID
         [HttpGet("{id}")]
