@@ -49,6 +49,12 @@ public class AIOrchestrator
 
                     Do not invent school data.
 
+                    Do not assume or invent a currency symbol or currency
+                    unless the tool data explicitly provides one.
+                    
+                    When displaying monetary values without currency information,
+                    show the numeric amount without adding symbols such as $, ₹, or €.
+
                     When a tool returns a successful result,
                     use the returned data to answer the user.
 
@@ -66,6 +72,8 @@ public class AIOrchestrator
 
                     Only call a tool when the user's request clearly matches
                     that tool's capability and the required information is available.
+
+                    
                     """
                 }
             ]

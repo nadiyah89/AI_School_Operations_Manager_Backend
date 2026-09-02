@@ -1,12 +1,13 @@
-﻿using Google.GenAI;
+﻿using System.Text.Json;
+using Google.GenAI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using SchoolOperations.AI.Orchestration;
 using SchoolOperations.AI.Tools;
 
-
-// ---------------------------------------------------------
-// 1. Read Gemini API key
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 1. Read Gemini API key
+//// ---------------------------------------------------------
 
 var apiKey =
     Environment.GetEnvironmentVariable("GEMINI_API_KEY");
@@ -18,17 +19,17 @@ if (string.IsNullOrWhiteSpace(apiKey))
 }
 
 
-// ---------------------------------------------------------
-// 2. Create Gemini client
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 2. Create Gemini client
+//// ---------------------------------------------------------
 
 var client =
     new Client(apiKey: apiKey);
 
 
-// ---------------------------------------------------------
-// 3. Create dependency injection services
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 3. Create dependency injection services
+//// ---------------------------------------------------------
 
 var services =
     new ServiceCollection();
@@ -39,34 +40,34 @@ var serviceProvider =
     services.BuildServiceProvider();
 
 
-// ---------------------------------------------------------
-// 4. Create Tool Registry
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 4. Create Tool Registry
+//// ---------------------------------------------------------
 
 var registry =
     new ToolRegistry();
 
 
-// ---------------------------------------------------------
-// 5. Register School Name Tool
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 5. Register School Name Tool
+//// ---------------------------------------------------------
 
 registry.Register(
     new SchoolNameTool());
 
 
-// ---------------------------------------------------------
-// 6. Create HttpClientFactory
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 6. Create HttpClientFactory
+//// ---------------------------------------------------------
 
 var httpClientFactory =
     serviceProvider
         .GetRequiredService<IHttpClientFactory>();
 
 
-// ---------------------------------------------------------
-// 7. Create and register AttendanceTool
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 7. Create and register AttendanceTool
+//// ---------------------------------------------------------
 
 var attendanceTool =
     new AttendanceTool(
@@ -76,9 +77,9 @@ registry.Register(
     attendanceTool);
 
 
-// ---------------------------------------------------------
-// 8. Create and register PoorPerformanceTool
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 8. Create and register PoorPerformanceTool
+//// ---------------------------------------------------------
 
 var poorPerformanceTool =
     new PoorPerformanceTool(
@@ -88,9 +89,9 @@ registry.Register(
     poorPerformanceTool);
 
 
-// ---------------------------------------------------------
-// 9. Create and register DecliningPerformanceTool
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 9. Create and register DecliningPerformanceTool
+//// ---------------------------------------------------------
 
 var decliningPerformanceTool =
     new DecliningPerformanceTool(
@@ -100,9 +101,46 @@ registry.Register(
     decliningPerformanceTool);
 
 
-// ---------------------------------------------------------
-// 10. Create AI Orchestrator
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 10. Create and register OutstandingFeesTool
+//// ---------------------------------------------------------
+
+var outstandingFeesTool =
+    new OutstandingFeesTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    outstandingFeesTool);
+
+
+//// ---------------------------------------------------------
+//// 11. Create and register OverdueFeesTool
+//// ---------------------------------------------------------
+
+var overdueFeesTool =
+new OverdueFeesTool(
+    httpClientFactory.CreateClient());
+
+registry.Register(
+    overdueFeesTool);
+
+
+//// ---------------------------------------------------------
+//// 12. Create and register FeeSummaryTool
+//// ---------------------------------------------------------
+
+var feeSummaryTool =
+    new FeeSummaryTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    feeSummaryTool);
+
+
+
+//// ---------------------------------------------------------
+//// 13. Create AI Orchestrator
+//// ---------------------------------------------------------
 
 var orchestrator =
     new AIOrchestrator(
@@ -110,16 +148,16 @@ var orchestrator =
         registry);
 
 
-// ---------------------------------------------------------
-// 11. Read user JWT
-// ---------------------------------------------------------
-//
-// Get this from:
-//
-// POST /api/Auth/login
-//
-// Do NOT include "Bearer ".
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 14. Read user JWT
+//// ---------------------------------------------------------
+////
+//// Get this from:
+////
+//// POST /api/Auth/login
+////
+//// Do NOT include "Bearer ".
+//// ---------------------------------------------------------
 
 Console.Write(
     "Enter JWT access token: ");
@@ -128,20 +166,19 @@ var accessToken =
     Console.ReadLine() ?? "";
 
 
-// ---------------------------------------------------------
-// 12. Send request to AI Agent
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 15. Send request to AI Agent
+//// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-        "Show me students who scored below 60% academically " +
-        "and also students with declining academic performance.",
+          "Which student have overdue fees",
         accessToken);
 
 
-// ---------------------------------------------------------
-// 13. Display final AI response
-// ---------------------------------------------------------
+//// ---------------------------------------------------------
+//// 16. Display final AI response
+//// ---------------------------------------------------------
 
 Console.WriteLine();
 
@@ -157,4 +194,10 @@ Console.WriteLine(
 Console.WriteLine(result);
 
 Console.WriteLine();
+
+
+
+
+
+
 
