@@ -22,18 +22,85 @@ namespace SchoolOperations.Controllers
 
 
         // GET: api/admissions
-        // Gets all admission applications
+        // GET: api/admissions?status=Pending
+        // Gets all admission applications, optionally filtered by status
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<AdmissionApplication>>> GetAdmissions()
+        public async Task<ActionResult<IEnumerable<AdmissionApplication>>> GetAdmissions(
+            string? status = null)
         {
-            // Get all admission applications from the database
-            var admissions = await _context.AdmissionApplications
-                .ToListAsync();
+            // Start with all admission applications
+            var query = _context.AdmissionApplications
+                .AsQueryable();
+
+            // Valid admission statuses supported by the backend
+            var validStatuses = new[]
+            {
+        "Pending",
+        "Approved",
+        "Rejected",
+        "Waitlisted"
+    };
+
+            // If a status was provided, validate and filter the applications
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                // Check whether the requested status is valid
+                if (!validStatuses.Contains(status))
+                {
+                    return BadRequest(
+                        "Invalid admission status. Valid statuses are: " +
+                        "Pending, Approved, Rejected, Waitlisted.");
+                }
+
+                // Filter admission applications by the requested status
+                query = query.Where(a => a.Status == status);
+            }
+
+            // Execute the query
+            var admissions = await query.ToListAsync();
 
             // Return the admission applications
             return Ok(admissions);
         }
+
+
+
+        // GET: api/admissions/summary
+        // Gets a deterministic summary of admission applications
+        [HttpGet("summary")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<AdmissionSummaryDto>> GetAdmissionSummary()
+        {
+            // Calculate admission counts using deterministic backend rules
+            var summary = new AdmissionSummaryDto
+            {
+                // Total number of admission applications
+                TotalApplications = await _context.AdmissionApplications
+                    .CountAsync(),
+
+                // Applications that are still pending
+                PendingApplications = await _context.AdmissionApplications
+                    .CountAsync(a => a.Status == "Pending"),
+
+                // Applications that have been approved
+                ApprovedApplications = await _context.AdmissionApplications
+                    .CountAsync(a => a.Status == "Approved"),
+
+                // Applications that have been rejected
+                RejectedApplications = await _context.AdmissionApplications
+                    .CountAsync(a => a.Status == "Rejected"),
+
+                // Applications currently on the waiting list
+                WaitlistedApplications = await _context.AdmissionApplications
+                    .CountAsync(a => a.Status == "Waitlisted")
+            };
+
+            // Return the deterministic summary
+            return Ok(summary);
+        }
+
+
 
 
 
@@ -66,6 +133,25 @@ namespace SchoolOperations.Controllers
         public async Task<ActionResult<AdmissionApplication>> CreateAdmission(
             CreateAdmissionDto dto)
         {
+            // Check whether the applicant already has an active application
+            // for the same class
+            var existingApplication = await _context.AdmissionApplications
+                .AnyAsync(a =>
+                    a.ApplicantFirstName == dto.ApplicantFirstName &&
+                    a.ApplicantLastName == dto.ApplicantLastName &&
+                    a.DateOfBirth == dto.DateOfBirth &&
+                    a.ApplyingForClass == dto.ApplyingForClass &&
+                    (a.Status == "Pending" ||
+                     a.Status == "Approved" ||
+                     a.Status == "Waitlisted"));
+
+            // Prevent duplicate active applications
+            if (existingApplication)
+            {
+                return BadRequest(
+                    "An active admission application already exists for this applicant and class.");
+            }
+
             // Create a new admission application from the DTO
             var admission = new AdmissionApplication
             {
@@ -105,10 +191,18 @@ namespace SchoolOperations.Controllers
             var admission = await _context.AdmissionApplications
                 .FirstOrDefaultAsync(a => a.Id == id);
 
+
             // If the application does not exist, return 404
             if (admission == null)
             {
                 return NotFound("Admission application does not exist.");
+            }
+
+            // Only pending admission applications can be updated
+            if (admission.Status != "Pending")
+            {
+                return BadRequest(
+                    $"Admission application cannot be updated because it is {admission.Status}.");
             }
 
             // Update the applicant's information
@@ -146,11 +240,12 @@ namespace SchoolOperations.Controllers
                 return NotFound("Admission application does not exist.");
             }
 
-            // Only pending applications can be approved
-            if (admission.Status != "Pending")
+            // Only Pending or Waitlisted applications can be approved
+            if (admission.Status != "Pending" &&
+                admission.Status != "Waitlisted")
             {
                 return BadRequest(
-                    $"Admission application is already {admission.Status}.");
+                    $"Admission application cannot be approved because it is {admission.Status}.");
             }
 
             // Change the application status
@@ -180,11 +275,12 @@ namespace SchoolOperations.Controllers
                 return NotFound("Admission application does not exist.");
             }
 
-            // Only pending applications can be rejected
-            if (admission.Status != "Pending")
+            // Only Pending or Waitlisted applications can be rejected
+            if (admission.Status != "Pending" &&
+                admission.Status != "Waitlisted")
             {
                 return BadRequest(
-                    $"Admission application is already {admission.Status}.");
+                    $"Admission application cannot be rejected because it is {admission.Status}.");
             }
 
             // Change the application status
