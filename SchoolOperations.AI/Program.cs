@@ -139,7 +139,43 @@ registry.Register(
 
 
 //// ---------------------------------------------------------
-//// 13. Create AI Orchestrator
+//// 13. Create and register AdmissionSummaryTool
+//// ---------------------------------------------------------
+
+var admissionSummaryTool =
+    new AdmissionSummaryTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    admissionSummaryTool);
+
+
+//// ---------------------------------------------------------
+//// 14. Create and register AdmissionsByStatusTool
+//// ---------------------------------------------------------
+
+var admissionsByStatusTool =
+    new AdmissionsByStatusTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    admissionsByStatusTool);
+
+
+//// ---------------------------------------------------------
+//// 15. Create and register AdmissionDetailsTool
+//// ---------------------------------------------------------
+
+var admissionDetailsTool =
+    new AdmissionDetailsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    admissionDetailsTool);
+
+
+//// ---------------------------------------------------------
+//// 15. Create AI Orchestrator
 //// ---------------------------------------------------------
 
 var orchestrator =
@@ -149,7 +185,7 @@ var orchestrator =
 
 
 //// ---------------------------------------------------------
-//// 14. Read user JWT
+//// 16. Read user JWT
 //// ---------------------------------------------------------
 ////
 //// Get this from:
@@ -167,17 +203,17 @@ var accessToken =
 
 
 //// ---------------------------------------------------------
-//// 15. Send request to AI Agent
+//// 17. Send request to AI Agent
 //// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-          "Which student have overdue fees",
+            "Show me admission application with ID 99999",
         accessToken);
 
 
 //// ---------------------------------------------------------
-//// 16. Display final AI response
+//// 18. Display final AI response
 //// ---------------------------------------------------------
 
 Console.WriteLine();
@@ -194,9 +230,6 @@ Console.WriteLine(
 Console.WriteLine(result);
 
 Console.WriteLine();
-
-
-
 
 
 
