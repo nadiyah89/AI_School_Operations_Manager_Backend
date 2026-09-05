@@ -51,6 +51,118 @@ namespace SchoolOperations.Controllers
         }
 
 
+
+        // GET: api/meetings/my
+        // Gets active meetings for the currently authenticated Teacher or Parent
+        [HttpGet("my")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<MeetingSummaryDto>>> GetMyMeetings(
+            string? status = null,
+            DateTime? date = null)
+        {
+            // Admin does not have a personal meeting context
+            if (User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+
+            // Validate status when provided
+            if (!string.IsNullOrEmpty(status) &&
+                status != "Scheduled" &&
+                status != "Completed" &&
+                status != "Cancelled")
+            {
+                return BadRequest(
+                    "Invalid meeting status. Use Scheduled, Completed, or Cancelled.");
+            }
+
+            // Get the currently logged-in user
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            // Start with active meetings only
+            var query = _context.Meetings
+                 .Where(m => m.IsActive)
+                  .AsQueryable();
+
+
+            // Teacher can view only their own meetings
+            if (User.IsInRole("Teacher"))
+            {
+                query = query.Where(m => m.TeacherId == user.TeacherId);
+            }
+
+            // Parent can view only meetings related to their child
+            else if (User.IsInRole("Parent"))
+            {
+                var parent = await _context.Parents
+                    .FirstOrDefaultAsync(p => p.Id == user.ParentId);
+
+                if (parent == null)
+                {
+                    return Forbid();
+                }
+
+                query = query.Where(m => m.StudentId == parent.StudentId);
+            }
+
+            // Students and other roles have no meeting access
+            else
+            {
+                return Forbid();
+            }
+
+            // Apply status filter when provided
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(m => m.Status == status);
+            }
+
+            // Apply date filter when provided
+            if (date.HasValue)
+            {
+                var startOfDay = date.Value.Date;
+                var endOfDay = startOfDay.AddDays(1);
+
+                query = query.Where(m =>
+                    m.MeetingDate >= startOfDay &&
+                    m.MeetingDate < endOfDay);
+            }
+
+            // Return compact meeting summaries ordered by date
+            var meetings = await query
+                .OrderBy(m => m.MeetingDate)
+                .Select(m => new MeetingSummaryDto
+                {
+                    Id = m.Id,
+
+                    StudentId = m.StudentId,
+                    StudentName = m.Student != null
+                        ? m.Student.FirstName + " " + m.Student.LastName
+                        : string.Empty,
+
+                    TeacherId = m.TeacherId,
+                    TeacherName = m.Teacher != null
+                        ? m.Teacher.FirstName + " " + m.Teacher.LastName
+                        : string.Empty,
+
+                    MeetingDate = m.MeetingDate,
+                    Purpose = m.Purpose,
+                    Status = m.Status
+                })
+                .ToListAsync();
+
+            return Ok(meetings);
+        }
+
+
+
+
+
         // GET: api/meetings/1
         // Gets one meeting by ID
         [HttpGet("{id}")]
@@ -73,6 +185,12 @@ namespace SchoolOperations.Controllers
             if (User.IsInRole("Admin"))
             {
                 return Ok(meeting);
+            }
+
+            // Non-admin users cannot access inactive meetings
+            if (!meeting.IsActive)
+            {
+                return NotFound("Meeting does not exist.");
             }
 
             // Get the currently logged-in user
