@@ -155,8 +155,8 @@ registry.Register(
 //// ---------------------------------------------------------
 
 var admissionsByStatusTool =
-    new AdmissionsByStatusTool(
-        httpClientFactory.CreateClient());
+new AdmissionsByStatusTool(
+    httpClientFactory.CreateClient());
 
 registry.Register(
     admissionsByStatusTool);
@@ -198,9 +198,33 @@ registry.Register(
     readDocumentTool);
 
 
+// ---------------------------------------------------------
+// 18. Create and register GetMyMeetingsTool
+// ---------------------------------------------------------
+
+var getMyMeetingsTool =
+    new GetMyMeetingsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    getMyMeetingsTool);
+
+
+// ---------------------------------------------------------
+// 19. Create and register GetMeetingDetailsTool
+// ---------------------------------------------------------
+
+var getMeetingDetailsTool =
+    new GetMeetingDetailsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    getMeetingDetailsTool);
+
+
 
 //// ---------------------------------------------------------
-//// 18. Create AI Orchestrator
+//// 20. Create AI Orchestrator
 //// ---------------------------------------------------------
 
 var orchestrator =
@@ -210,7 +234,7 @@ var orchestrator =
 
 
 //// ---------------------------------------------------------
-//// 19. Read user JWT
+//// 21. Read user JWT
 //// ---------------------------------------------------------
 ////
 //// Get this from:
@@ -228,17 +252,17 @@ var accessToken =
 
 
 //// ---------------------------------------------------------
-//// 20. Send request to AI Agent
+//// 22. Send request to AI Agent
 //// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-            "Show me document with ID 2.",
+        "Show me my meetings and give me the complete details of the completed meeting.",
         accessToken);
 
 
 //// ---------------------------------------------------------
-//// 21. Display final AI response
+//// 23. Display final AI response
 //// ---------------------------------------------------------
 
 Console.WriteLine();
@@ -255,7 +279,6 @@ Console.WriteLine(
 Console.WriteLine(result);
 
 Console.WriteLine();
-
 
 
 
