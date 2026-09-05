@@ -174,8 +174,33 @@ registry.Register(
     admissionDetailsTool);
 
 
+// ---------------------------------------------------------
+// 16. Create and register DocumentCatalogTool
+// ---------------------------------------------------------
+
+var documentCatalogTool =
+    new DocumentCatalogTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    documentCatalogTool);
+
+
+// ---------------------------------------------------------
+// 17. Create and register ReadDocumentTool
+// ---------------------------------------------------------
+
+var readDocumentTool =
+    new ReadDocumentTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    readDocumentTool);
+
+
+
 //// ---------------------------------------------------------
-//// 15. Create AI Orchestrator
+//// 18. Create AI Orchestrator
 //// ---------------------------------------------------------
 
 var orchestrator =
@@ -185,7 +210,7 @@ var orchestrator =
 
 
 //// ---------------------------------------------------------
-//// 16. Read user JWT
+//// 19. Read user JWT
 //// ---------------------------------------------------------
 ////
 //// Get this from:
@@ -203,17 +228,17 @@ var accessToken =
 
 
 //// ---------------------------------------------------------
-//// 17. Send request to AI Agent
+//// 20. Send request to AI Agent
 //// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-            "Show me admission application with ID 99999",
+            "Show me document with ID 2.",
         accessToken);
 
 
 //// ---------------------------------------------------------
-//// 18. Display final AI response
+//// 21. Display final AI response
 //// ---------------------------------------------------------
 
 Console.WriteLine();
@@ -230,6 +255,10 @@ Console.WriteLine(
 Console.WriteLine(result);
 
 Console.WriteLine();
+
+
+
+
 
 
 
