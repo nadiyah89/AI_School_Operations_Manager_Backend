@@ -30,8 +30,8 @@ namespace SchoolOperations.Controllers
             // Start with all documents
             var query = _context.Documents.AsQueryable();
 
-            // By default, return only active documents
-            if (!includeInactive)
+            // Only Admin can view inactive documents
+            if (!includeInactive || !User.IsInRole("Admin"))
             {
                 query = query.Where(d => d.IsActive);
             }
@@ -41,6 +41,42 @@ namespace SchoolOperations.Controllers
 
             return Ok(documents);
         }
+
+
+
+        // GET: api/documents/catalog
+        // Admin, Teacher, Parent and Student can browse active document summaries
+        [HttpGet("catalog")]
+        [Authorize(Roles = "Admin,Teacher,Parent,Student")]
+        public async Task<ActionResult<IEnumerable<DocumentSummaryDto>>> GetDocumentCatalog(
+            string? category = null)
+        {
+            // Start with active documents only
+            var query = _context.Documents
+                .Where(d => d.IsActive)
+                .AsQueryable();
+
+            // Filter by category if provided
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                query = query.Where(d =>
+                    d.Category.ToLower() == category.ToLower());
+            }
+
+            // Return lightweight document summaries
+            var documents = await query
+                .Select(d => new DocumentSummaryDto
+                {
+                    Id = d.Id,
+                    Title = d.Title,
+                    Category = d.Category,
+                    UpdatedAt = d.UpdatedAt
+                })
+                .ToListAsync();
+
+            return Ok(documents);
+        }
+
 
 
         // GET: api/documents/1
@@ -55,6 +91,12 @@ namespace SchoolOperations.Controllers
 
             // If document does not exist
             if (document == null)
+            {
+                return NotFound("Document does not exist.");
+            }
+
+            // Only Admin can view inactive documents
+            if (!document.IsActive && !User.IsInRole("Admin"))
             {
                 return NotFound("Document does not exist.");
             }
