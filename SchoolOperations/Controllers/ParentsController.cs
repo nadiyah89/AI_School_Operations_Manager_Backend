@@ -30,7 +30,8 @@ namespace SchoolOperations.Controllers
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Parent>>> GetParents(
-            bool includeInactive = false)
+           bool includeInactive = false,
+           string? search = null)
         {
             // Start with all parents
             var query = _context.Parents
@@ -41,6 +42,16 @@ namespace SchoolOperations.Controllers
             if (!includeInactive)
             {
                 query = query.Where(p => p.IsActive);
+            }
+
+            // Apply optional name search
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim();
+
+                query = query.Where(p =>
+                    p.FirstName.Contains(search) ||
+                    p.LastName.Contains(search));
             }
 
             // Execute the query
@@ -67,8 +78,20 @@ namespace SchoolOperations.Controllers
                 return NotFound("Parent does not exist.");
             }
 
-            // Admin and Teacher can view any parent
-            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            // Admin can view any parent, including inactive parents
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(parent);
+            }
+
+            // Non-admin users cannot access inactive parents
+            if (!parent.IsActive)
+            {
+                return NotFound("Parent does not exist.");
+            }
+
+            // Teacher can view any active parent
+            if (User.IsInRole("Teacher"))
             {
                 return Ok(parent);
             }

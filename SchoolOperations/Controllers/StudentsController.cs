@@ -31,7 +31,8 @@ namespace SchoolOperations.Controllers
         [HttpGet]
         [Authorize(Roles = "Admin,Teacher")]
         public async Task<ActionResult<IEnumerable<Student>>> GetStudents(
-            bool includeInactive = false)
+        bool includeInactive = false,
+        string? search = null)
         {
             // Start with all students
             var query = _context.Students.AsQueryable();
@@ -40,6 +41,16 @@ namespace SchoolOperations.Controllers
             if (!includeInactive)
             {
                 query = query.Where(s => s.IsActive);
+            }
+
+            // Apply optional name search
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                search = search.Trim();
+
+                query = query.Where(s =>
+                    s.FirstName.Contains(search) ||
+                    s.LastName.Contains(search));
             }
 
             // Execute the query and get the students
@@ -61,8 +72,20 @@ namespace SchoolOperations.Controllers
                 return NotFound("Student not found.");
             }
 
-            // Admin and Teacher can view any student
-            if (User.IsInRole("Admin") || User.IsInRole("Teacher"))
+            // Admin can view any student, including inactive students
+            if (User.IsInRole("Admin"))
+            {
+                return Ok(student);
+            }
+
+            // Non-admin users cannot access inactive students
+            if (!student.IsActive)
+            {
+                return NotFound("Student not found.");
+            }
+
+            // Teacher can view any active student
+            if (User.IsInRole("Teacher"))
             {
                 return Ok(student);
             }
