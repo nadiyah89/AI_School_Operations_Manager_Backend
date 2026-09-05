@@ -223,8 +223,69 @@ registry.Register(
 
 
 
+// ---------------------------------------------------------
+// 20. Create and register SearchStudentsTool
+// ---------------------------------------------------------
+
+var searchStudentsTool =
+    new SearchStudentsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    searchStudentsTool);
+
+
+// ---------------------------------------------------------
+// 21. Create and register GetStudentDetailsTool
+// ---------------------------------------------------------
+
+var getStudentDetailsTool =
+    new GetStudentDetailsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    getStudentDetailsTool);
+
+
+
+// ---------------------------------------------------------
+// 22. Create and register SearchTeachersTool
+// ---------------------------------------------------------
+
+var searchTeachersTool =
+    new SearchTeachersTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    searchTeachersTool);
+
+
+// ---------------------------------------------------------
+// 23. Create and register SearchParentsTool
+// ---------------------------------------------------------
+
+var searchParentsTool =
+    new SearchParentsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    searchParentsTool);
+
+
+// ---------------------------------------------------------
+// 24. Create and register GetParentsByStudentTool
+// ---------------------------------------------------------
+
+var getParentsByStudentTool =
+    new GetParentsByStudentTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    getParentsByStudentTool);
+
+
 //// ---------------------------------------------------------
-//// 20. Create AI Orchestrator
+//// 25. Create AI Orchestrator
 //// ---------------------------------------------------------
 
 var orchestrator =
@@ -234,7 +295,7 @@ var orchestrator =
 
 
 //// ---------------------------------------------------------
-//// 21. Read user JWT
+//// 26. Read user JWT
 //// ---------------------------------------------------------
 ////
 //// Get this from:
@@ -252,17 +313,17 @@ var accessToken =
 
 
 //// ---------------------------------------------------------
-//// 22. Send request to AI Agent
+//// 27. Send request to AI Agent
 //// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-        "Show me my meetings and give me the complete details of the completed meeting.",
+        "Find the parent named Ahmed Khan and show me their contact information and which student they are associated with.",
         accessToken);
 
 
 //// ---------------------------------------------------------
-//// 23. Display final AI response
+//// 28. Display final AI response
 //// ---------------------------------------------------------
 
 Console.WriteLine();
