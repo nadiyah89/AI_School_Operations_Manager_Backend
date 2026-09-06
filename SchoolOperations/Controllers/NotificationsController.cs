@@ -30,7 +30,10 @@ namespace SchoolOperations.Controllers
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Notification>>> GetNotifications(
-            bool includeInactive = false)
+            bool includeInactive = false,
+            string? status = null,
+            int? studentId = null,
+            int? parentId = null)
         {
             var query = _context.Notifications
                 .Include(n => n.Student)
@@ -41,6 +44,24 @@ namespace SchoolOperations.Controllers
             if (!includeInactive)
             {
                 query = query.Where(n => n.IsActive);
+            }
+
+            // Filter by notification status when provided.
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(n => n.Status == status);
+            }
+
+            // Filter by student when provided.
+            if (studentId.HasValue)
+            {
+                query = query.Where(n => n.StudentId == studentId.Value);
+            }
+
+            // Filter by parent when provided.
+            if (parentId.HasValue)
+            {
+                query = query.Where(n => n.ParentId == parentId.Value);
             }
 
             var notifications = await query.ToListAsync();
@@ -71,6 +92,12 @@ namespace SchoolOperations.Controllers
             if (User.IsInRole("Admin"))
             {
                 return Ok(notification);
+            }
+
+            // Non-admin users cannot access inactive notifications.
+            if (!notification.IsActive)
+            {
+                return NotFound("Notification does not exist.");
             }
 
             var user = await _userManager.GetUserAsync(User);
