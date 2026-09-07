@@ -73,6 +73,13 @@ public class AIOrchestrator
                     Only call a tool when the user's request clearly matches
                     that tool's capability and the required information is available.
 
+                    When you use a tool to create a notification,
+                    you must inform the user that the notification has been
+                    created and recorded successfully.
+
+                    You must never claim that an SMS or Email was physically sent,
+                    because the system only records notifications in the database.
+
                     
                     """
                 }

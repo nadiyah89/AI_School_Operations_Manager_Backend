@@ -284,8 +284,34 @@ registry.Register(
     getParentsByStudentTool);
 
 
+
+// ---------------------------------------------------------
+// 25. Create and register GetStudentNotificationsTool
+// ---------------------------------------------------------
+
+var getStudentNotificationsTool =
+    new GetStudentNotificationsTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    getStudentNotificationsTool);
+
+
+
+// ---------------------------------------------------------
+// 26. Create and register CreateNotificationTool
+// ---------------------------------------------------------
+
+var createNotificationTool =
+    new CreateNotificationTool(
+        httpClientFactory.CreateClient());
+
+registry.Register(
+    createNotificationTool);
+
+
 //// ---------------------------------------------------------
-//// 25. Create AI Orchestrator
+//// 27. Create AI Orchestrator
 //// ---------------------------------------------------------
 
 var orchestrator =
@@ -295,7 +321,7 @@ var orchestrator =
 
 
 //// ---------------------------------------------------------
-//// 26. Read user JWT
+//// 28. Read user JWT
 //// ---------------------------------------------------------
 ////
 //// Get this from:
@@ -313,17 +339,17 @@ var accessToken =
 
 
 //// ---------------------------------------------------------
-//// 27. Send request to AI Agent
+//// 29. Send request to AI Agent
 //// ---------------------------------------------------------
 
 var result =
     await orchestrator.ProcessAsync(
-        "Find the parent named Ahmed Khan and show me their contact information and which student they are associated with.",
+        "Create an Email notification for student ID 9 and parent ID 1002. Notification type: Meeting Reminder. Message: The parent-teacher meeting is scheduled for tomorrow.",
         accessToken);
 
 
 //// ---------------------------------------------------------
-//// 28. Display final AI response
+//// 30. Display final AI response
 //// ---------------------------------------------------------
 
 Console.WriteLine();
