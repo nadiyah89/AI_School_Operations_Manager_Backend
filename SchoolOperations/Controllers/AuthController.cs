@@ -41,11 +41,23 @@ namespace SchoolOperations.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterUserDto dto)
         {
-            // Check whether the requested role exists
-            if (!await _roleManager.RoleExistsAsync(dto.Role))
+            // Roles allowed through public registration
+            var allowedRoles = new[] { "Student", "Teacher", "Parent" };
+
+            // Prevent public registration for Admin or any other role
+            if (!allowedRoles.Contains(
+                    dto.Role,
+                    StringComparer.OrdinalIgnoreCase))
             {
                 return BadRequest("Invalid role.");
             }
+
+            // Normalize the role so existing role checks remain consistent
+            dto.Role = allowedRoles.First(
+                role => string.Equals(
+                    role,
+                    dto.Role,
+                    StringComparison.OrdinalIgnoreCase));
 
             // Check whether the email is already registered
             var existingUser = await _userManager.FindByEmailAsync(dto.Email);

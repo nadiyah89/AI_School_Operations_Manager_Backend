@@ -1,4 +1,6 @@
-﻿namespace SchoolOperations.DTOs.Admission
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SchoolOperations.DTOs.Admission
 {
     public class UpdateAdmissionDto
     {
@@ -13,6 +15,8 @@
         // Parent/guardian contact information
         public string ParentName { get; set; } = string.Empty;
         public string ParentPhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress]
         public string ParentEmail { get; set; } = string.Empty;
     }
 }

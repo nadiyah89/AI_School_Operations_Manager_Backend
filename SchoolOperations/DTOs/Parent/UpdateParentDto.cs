@@ -1,4 +1,6 @@
-﻿namespace SchoolOperations.DTOs.Parent
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SchoolOperations.DTOs.Parent
 {
     public class UpdateParentDto
     {
@@ -8,6 +10,8 @@
 
         // Parent's contact information
         public string PhoneNumber { get; set; } = string.Empty;
+
+        [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
         // Relationship with the student

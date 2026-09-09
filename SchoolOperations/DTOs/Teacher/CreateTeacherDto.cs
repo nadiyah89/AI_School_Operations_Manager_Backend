@@ -1,4 +1,6 @@
-﻿namespace SchoolOperations.DTOs.Teacher
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SchoolOperations.DTOs.Teacher
 {
     public class CreateTeacherDto
     {
@@ -12,6 +14,7 @@
         public string PhoneNumber { get; set; } = string.Empty;
 
         // Teacher's email address
+        [EmailAddress]
         public string Email { get; set; } = string.Empty;
     }
 }
